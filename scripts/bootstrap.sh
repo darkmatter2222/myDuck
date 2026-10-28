@@ -30,7 +30,7 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 if [[ "${1:-}" == '--tensorboard-only' ]]; then
   log 'Preparing TensorBoard only; no GPU or training installation required'
-  python3 "$SCRIPT_DIR/setup_step.py" --label 'TensorBoard package' --timeout 900 -- uvx --from tensorboard==2.20.0 tensorboard --version
+  python3 "$SCRIPT_DIR/setup_step.py" --label 'TensorBoard package' --timeout 900 -- uvx --python 3.12 --with setuptools==80.9.0 --from tensorboard==2.20.0 tensorboard --version
   exit 0
 fi
 if ! command -v nvidia-smi >/dev/null 2>&1; then
@@ -62,6 +62,10 @@ uv python install 3.12
 python3 "$SCRIPT_DIR/setup_step.py" --label 'Pinned dependency installation' --timeout 7200 -- uv sync --frozen
 log 'Verifying CUDA and simulator (heartbeat every 15 seconds; 20 minute timeout)'
 python3 "$SCRIPT_DIR/setup_step.py" --label 'CUDA and simulator verification' --timeout 1200 -- "$REPO/.venv/bin/python" -u "$SCRIPT_DIR/verify_runtime.py"
-log 'Preparing TensorBoard before unattended training'
-python3 "$SCRIPT_DIR/setup_step.py" --label 'TensorBoard package' --timeout 900 -- uvx --from tensorboard==2.20.0 tensorboard --version
+log 'Checking TensorBoard from the existing training environment'
+if python3 "$SCRIPT_DIR/setup_step.py" --label 'Training-environment TensorBoard' --timeout 120 -- "$REPO/.venv/bin/tensorboard" --version; then
+  log 'TensorBoard ready (using training environment; no second installation)'
+else
+  log 'WARNING: TensorBoard check failed. Training setup is ready; dashboard failure will not block training.'
+fi
 log "READY: $REPO"

@@ -47,6 +47,8 @@ class StartupTests(unittest.TestCase):
             with mock.patch.multiple(e,HOME=home,BASE=home/'project',REPO=home/'project/repo',RUN_ROOT=home/'project/repo/logs'),mock.patch.object(e,'serve',return_value=0) as serve:
                 self.assertEqual(e.cmd_tensorboard(N()),0)
                 self.assertEqual(serve.call_args.args[2],6007)
+                self.assertIn('setuptools==80.9.0',serve.call_args.args[0])
+                self.assertIn('--python',serve.call_args.args[0])
                 self.assertFalse(e.REPO.exists())
 
     def test_missing_uvx_prepares_tensorboard_automatically(self):

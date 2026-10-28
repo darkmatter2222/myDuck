@@ -70,7 +70,7 @@ This permanently removes **`~/xgoduck_oneclick`**, including its upstream checko
 | `~/xgoduck_oneclick/best` | Champion copy and qualifying ONNX export |
 | `~/xgoduck_oneclick/xgoduck_rl/logs/rsl_rl/xgoduck_velocity` | PPO checkpoints and TensorBoard events |
 
-All project control code is in this repository. The first run downloads upstream source/assets and packages; GPU libraries and wheels are not committed here. Upstream is pinned to `LuwuDynamics/xgoduck_rl` revision `725ed0c`, which pins mjlab 1.3.0, Warp 1.12.0 and PyTorch 2.9.1. TensorBoard fallback is pinned to 2.20.0. No cloud training account is needed.
+All project control code is in this repository. The first run downloads upstream source/assets and packages; GPU libraries and wheels are not committed here. Upstream is pinned to `LuwuDynamics/xgoduck_rl` revision `725ed0c`, which pins mjlab 1.3.0, Warp 1.12.0 and PyTorch 2.9.1. TensorBoard fallback is pinned to 2.20.0 with setuptools 80.9.0 and Python 3.12 because this release imports pkg_resources. Full training setup uses its existing TensorBoard and does not create a second installation. Dashboard startup failures do not block the training campaign. No cloud training account is needed.
 
 ## Research and limits
 

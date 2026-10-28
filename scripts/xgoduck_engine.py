@@ -1032,7 +1032,7 @@ def cmd_tensorboard(args):
             say('Installing TensorBoard prerequisites automatically; full training setup is not required.')
             rc=subprocess.call(['bash',str(Path(__file__).with_name('bootstrap.sh')),'--tensorboard-only'])
             if rc: raise RuntimeError(f'TensorBoard preparation failed (exit {rc}). Export diagnostics for details.')
-        cmd=[str(uvx),'--from','tensorboard==2.20.0','tensorboard']
+        cmd=[str(uvx),'--python','3.12','--with','setuptools==80.9.0','--from','tensorboard==2.20.0','tensorboard']
     cmd+=['--logdir',str(RUN_ROOT),'--host','127.0.0.1','--port','6007']
     return serve(cmd,'tensorboard',6007)
 

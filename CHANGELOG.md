@@ -1,3 +1,10 @@
+# TensorBoard dependency fix
+
+- Full setup verifies the TensorBoard already installed in the training environment; it no longer creates a redundant isolated install.
+- Standalone TensorBoard explicitly includes setuptools 80.9.0 (provides pkg_resources) and Python 3.12.
+- Dashboard verification/window launch failures no longer abort a healthy training setup.
+- CI installs and runs the real standalone TensorBoard command, beyond fixture tests.
+
 # 2.1.0
 
 - Add a Windows desktop control panel with named actions, visible URLs and live task logs; retain the console fallback.

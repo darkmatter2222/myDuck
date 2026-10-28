@@ -11,6 +11,15 @@ jobs:
       - run: python -m unittest discover -s tests -v
       - run: python -m py_compile scripts/xgoduck_engine.py
       - run: bash -n scripts/bootstrap.sh
+  tensorboard-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install uv
+      - name: Verify real isolated TensorBoard installation
+        run: uv tool run --python 3.12 --with setuptools==80.9.0 --from tensorboard==2.20.0 tensorboard --version
   windows-launcher:
     runs-on: windows-latest
     steps:

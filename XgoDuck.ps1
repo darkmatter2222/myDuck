@@ -95,8 +95,9 @@ function Execute([string]$Action) {
    Add-Type -Namespace Xgo -Name Power -MemberDefinition '[System.Runtime.InteropServices.DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint flags);'
    [void][Xgo.Power]::SetThreadExecutionState([uint32]2147483649)
    try {
-    Spawn 'tensorboard'
-    Spawn 'viewer'
+    foreach ($service in @('tensorboard','viewer')) {
+     try {Spawn $service} catch {Write-Warning "Could not open $service window: $_. Training will continue."}
+    }
     Engine 'run' @('--environments','4096','--block-iterations','2000','--save-every','250','--forever')
     NeedSuccess 'Training'
    } finally {[void][Xgo.Power]::SetThreadExecutionState([uint32]2147483648)}
