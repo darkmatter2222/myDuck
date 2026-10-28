@@ -11,11 +11,14 @@ $script:LastLog=''
 $script:LastLogText=''
 $form=New-Object Windows.Forms.Form
 $form.Text='myDuck | Training studio'
+$form.AutoScaleMode=[Windows.Forms.AutoScaleMode]::None
 $form.Size=New-Object Drawing.Size(1080,820)
 $form.MinimumSize=New-Object Drawing.Size(1080,820)
 $form.StartPosition='CenterScreen'
 $form.BackColor=[Drawing.ColorTranslator]::FromHtml('#F3F5F9')
 $form.Font=New-Object Drawing.Font('Segoe UI',10)
+$form.ClientSize=New-Object Drawing.Size(1066,790)
+$form.MinimumSize=$form.Size
 function LabelAt($text,$x,$y,$w,$h,$size=10,$bold=$false) {
  $label=New-Object Windows.Forms.Label
  $label.Text=$text;$label.SetBounds($x,$y,$w,$h)
