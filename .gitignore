@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+XgoDuck.Settings.json
+*.log
+*.pt
+*.onnx
+*.zip
+.env
+.venv/
+logs/
+reports/
+wandb/
+
+launcher-logs/
