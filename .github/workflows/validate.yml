@@ -21,3 +21,6 @@ jobs:
           $tokens=$null; $errors=$null
           [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $pwd 'XgoDuck.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
           if ($errors.Count) { $errors | Format-List; exit 1 }
+      - name: Test actual child process argument passing
+        shell: powershell
+        run: .\tests\test_windows_launcher.ps1

@@ -1,3 +1,10 @@
+# 2.0.1
+
+- Use plain PowerShell -File worker invocation instead of encoded command text.
+- Replace process execution-policy Bypass with RemoteSigned in launchers and documented commands.
+- Validate worker arguments, report immediate worker exit in the parent, and add real Windows child-process argument tests.
+- Document Norton review steps without changing antivirus settings or creating exclusions.
+
 # 2.0.0
 
 - Rebuilt Windows launcher: native exit codes separated from output; held worker windows; per-process transcripts; Ubuntu discovery; WSL startup and path mapping; encoded worker arguments.

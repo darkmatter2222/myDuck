@@ -51,12 +51,13 @@ function Setup {
  NeedSuccess 'Dependency setup'
 }
 function Spawn([string]$Action) {
- # EncodedCommand avoids nested Windows argument quoting, including spaces/apostrophes.
- $file=(Join-Path $script:Root 'XgoDuck.ps1').Replace("'","''")
- $dist=$script:Distro.Replace("'","''")
- $command="& '$file' -Task '$Action' -Distro '$dist' -Hold"
- $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
- Start-Process powershell.exe -WorkingDirectory $script:Root -ArgumentList @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand',$encoded) | Out-Null
+ $file=Join-Path $script:Root 'XgoDuck.ps1'
+ $arguments=Get-XgoWorkerArguments -ScriptPath $file -Action $Action -Distribution $script:Distro
+ Write-Host ('Launching: powershell.exe '+$arguments)
+ $worker=Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -WorkingDirectory $script:Root -ArgumentList $arguments -PassThru
+ if ($worker.WaitForExit(1500)) {
+  throw "Worker exited immediately (exit $($worker.ExitCode)). Check launcher-logs and Norton Security History. No exclusions are added automatically."
+ }
 }
 function DeleteProject {
  Write-Host 'Delete ALL installed source, models, logs and state in ~/xgoduck_oneclick. NO archive.' -ForegroundColor Red
@@ -89,6 +90,7 @@ function Execute([string]$Action) {
  }
 }
 try {
+ . (Join-Path $script:Root 'scripts\windows-worker.ps1')
  $logDir=Join-Path $script:Root 'launcher-logs'
  New-Item -ItemType Directory -Force -Path $logDir | Out-Null
  $log=Join-Path $logDir ((Get-Date -Format 'yyyyMMdd-HHmmss')+"-$Task-$PID.log")

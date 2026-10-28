@@ -15,13 +15,13 @@ Requirements: Windows with an NVIDIA CUDA-capable GPU (target: RTX 5090), curren
 If more than one Ubuntu distribution is installed, use:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\XgoDuck.ps1 -Distro Ubuntu-24.04
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\XgoDuck.ps1 -Distro Ubuntu-24.04
 ```
 
 To skip the menu:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\XgoDuck.ps1 -Task run -Hold
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\XgoDuck.ps1 -Task run -Hold
 ```
 
 ## What you see
@@ -80,3 +80,13 @@ bash -n scripts/bootstrap.sh
 ```
 
 GitHub Actions runs offline tests and Windows PowerShell 5.1 parsing. These checks do not validate GPU physics, local WSL networking, browser rendering or real-robot behavior. The live preflight on your machine is mandatory; do not treat offline test success as a completed CUDA run.
+
+## Norton behavioral alert / disappearing workers
+
+Version 2.0.1 replaces encoded PowerShell worker commands with visible `-File` calls and uses process-scoped `RemoteSigned` instead of `Bypass`. The parent reports an immediate worker exit. No antivirus exclusions, security-service changes or quarantine actions are performed by this project.
+
+A reported IDP.HELU.PSE95 alert terminated PowerShell/WSL while launching workers. An antivirus-terminated process cannot keep its own window open. The encoded command is a suspected trigger, not a verified diagnosis of the local system. This change does not clear Norton's pending quarantine or guarantee Norton will accept the new command.
+
+Close the old menu, update this checkout with `git pull --ff-only` from Command Prompt, and run Norton LiveUpdate. If Norton still lists pending quarantine of PowerShell/WSL, stop relaunching and ask Norton Support to review that pending action. Do not broadly exclude PowerShell, WSL, Windows folders or all scripts. Norton documents suspected false-positive reports at https://support.norton.com/sp/en/us/home/current/solutions/kb20090410134005EN . Include the detection name, alert ID, repository URL and exact logged command. This repository cannot validate your installed Windows binaries or cancel Norton's reboot action.
+
+Prefer a Git clone. ZIP downloads may mark scripts as internet-origin, which RemoteSigned can reject. Review the downloaded files and their provenance; do not weaken system-wide execution policy to resolve a launch error.

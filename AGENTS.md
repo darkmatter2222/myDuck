@@ -1,3 +1,7 @@
+# Launcher update 2.0.1
+
+Workers MUST use plain -File invocation through scripts/windows-worker.ps1, not encoded or evaluated command text. Use process-scoped RemoteSigned. Do not add antivirus exclusions or manipulate pending quarantine. Run tests/test_windows_launcher.ps1 on Windows in CI. This supersedes earlier encoded-argument guidance.
+
 # Current release notes (2.0.0)
 
 The launcher was rebuilt: WSL maps paths using wslpath; workers hold their windows; native output is sent to Out-Host and exit codes stay numeric. Start launches TensorBoard and a waiting CPU viewer. README.md is authoritative for user-facing behavior. Training overrides MUST use cfg.env, not cfg.events/rewards/etc. Preflight is versioned. Bounded mode is the engine CLI default; Windows Start explicitly passes --forever. Three consecutive failed evaluations halt with checkpoints retained. GitHub Actions checks Windows PowerShell syntax. No CUDA/Windows execution was available during authoring.
