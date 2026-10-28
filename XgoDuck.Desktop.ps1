@@ -15,7 +15,7 @@ $form.AutoScaleMode=[Windows.Forms.AutoScaleMode]::None
 $form.Size=New-Object Drawing.Size(1080,820)
 $form.MinimumSize=New-Object Drawing.Size(1080,820)
 $form.StartPosition='CenterScreen'
-$form.BackColor=[Drawing.ColorTranslator]::FromHtml('#F3F5F9')
+$form.BackColor=[Drawing.ColorTranslator]::FromHtml('#10151F')
 $form.Font=New-Object Drawing.Font('Segoe UI',10)
 $form.ClientSize=New-Object Drawing.Size(1066,790)
 $form.MinimumSize=$form.Size
@@ -25,7 +25,7 @@ function LabelAt($text,$x,$y,$w,$h,$size=10,$bold=$false) {
  $style=[Drawing.FontStyle]::Regular
  if ($bold) {$style=[Drawing.FontStyle]::Bold}
  $label.Font=New-Object Drawing.Font('Segoe UI',$size,$style)
- $label.ForeColor=[Drawing.ColorTranslator]::FromHtml('#17243B')
+ $label.ForeColor=[Drawing.ColorTranslator]::FromHtml('#E5EAF3')
  $form.Controls.Add($label)
  return $label
 }
@@ -34,6 +34,9 @@ $null=LabelAt 'TRAINING STUDIO  /  2.1.0' 30 74 600 25 10 $true
 $null=LabelAt 'Setup, train, evaluate and inspect your duck from one place.' 30 104 960 28 12
 $null=LabelAt 'Ubuntu distribution' 30 154 180 24 10 $true
 $distro=New-Object Windows.Forms.TextBox
+$distro.BackColor=[Drawing.ColorTranslator]::FromHtml('#1B2433')
+$distro.ForeColor=[Drawing.ColorTranslator]::FromHtml('#E5EAF3')
+$distro.BorderStyle='FixedSingle'
 $distro.Text='Ubuntu';$distro.SetBounds(215,150,220,30);$form.Controls.Add($distro)
 $null=LabelAt 'Use the installed name, such as Ubuntu or Ubuntu-24.04.' 450 154 570 24
 function StartAction([string]$action) {
@@ -55,9 +58,16 @@ function ButtonAt($text,$x,$y,$w,$action,$primary=$false) {
  $button=New-Object Windows.Forms.Button
  $button.Text=$text;$button.SetBounds($x,$y,$w,44)
  $button.FlatStyle='Flat';$button.FlatAppearance.BorderSize=0
- $button.BackColor=[Drawing.ColorTranslator]::FromHtml('#E1E7F0')
- $button.ForeColor=[Drawing.ColorTranslator]::FromHtml('#17243B')
+ $button.BackColor=[Drawing.ColorTranslator]::FromHtml('#243044')
+ $button.ForeColor=[Drawing.ColorTranslator]::FromHtml('#E5EAF3')
  if ($primary) {$button.BackColor=[Drawing.ColorTranslator]::FromHtml('#2459D3');$button.ForeColor=[Drawing.Color]::White}
+ $button.UseVisualStyleBackColor=$false
+ $button.FlatAppearance.MouseOverBackColor=[Drawing.ColorTranslator]::FromHtml('#354761')
+ $button.FlatAppearance.MouseDownBackColor=[Drawing.ColorTranslator]::FromHtml('#405675')
+ if ($primary) {
+  $button.FlatAppearance.MouseOverBackColor=[Drawing.ColorTranslator]::FromHtml('#326AE8')
+  $button.FlatAppearance.MouseDownBackColor=[Drawing.ColorTranslator]::FromHtml('#1D47AA')
+ }
  $button.Tag=$action
  $button.Add_Click({param($sender,$event) StartAction ([string]$sender.Tag)})
  $form.Controls.Add($button)
@@ -77,6 +87,9 @@ $null=LabelAt 'Waits for a saved model. No page is served while waiting.' 580 32
 $status=LabelAt 'Ready. Start training handles installation and runs a GPU preflight before the long campaign.' 30 376 1006 46 11 $true
 $null=LabelAt 'LIVE LOG' 30 433 100 28 10 $true
 $selector=New-Object Windows.Forms.ComboBox
+$selector.BackColor=[Drawing.ColorTranslator]::FromHtml('#1B2433')
+$selector.ForeColor=[Drawing.ColorTranslator]::FromHtml('#E5EAF3')
+$selector.FlatStyle='Flat'
 $selector.DropDownStyle='DropDownList';$selector.SetBounds(140,430,195,30)
 foreach ($name in @('run','setup','tensorboard','viewer','diagnostics','stop','reset')) {[void]$selector.Items.Add($name)}
 $selector.SelectedIndex=0;$form.Controls.Add($selector)
@@ -85,7 +98,7 @@ $console=New-Object Windows.Forms.RichTextBox
 $console.SetBounds(30,473,1006,255)
 $console.Anchor='Top,Bottom,Left,Right'
 $console.ReadOnly=$true;$console.WordWrap=$false
-$console.BackColor=[Drawing.ColorTranslator]::FromHtml('#111B2C')
+$console.BackColor=[Drawing.ColorTranslator]::FromHtml('#0B1018')
 $console.ForeColor=[Drawing.ColorTranslator]::FromHtml('#DDE6F6')
 $console.Font=New-Object Drawing.Font('Consolas',10)
 $console.BorderStyle='None'
