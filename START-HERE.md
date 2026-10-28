@@ -1,9 +1,13 @@
 # Start here
 
-Double-click **START-XGODUCK.cmd**, then press **1**.
+Double-click **START-XGODUCK.cmd**, then click **Start / resume training**.
 
-Keep the extracted/cloned folder intact. Start handles setup, starts WSL, prepares TensorBoard, waits for a checkpoint to show in the viewer, and begins a resumable train/evaluate campaign.
+The desktop panel shows the live task log and service addresses:
+- TensorBoard: http://localhost:6007
+- Viewer: http://localhost:8080 (available only after a checkpoint loads)
 
-Use **2** for status, **3** for a newer viewer snapshot, **5** for logs, **7** to stop, and **9** to permanently reset the app-owned WSL installation with one DELETE confirmation and no archive.
+Click **Export diagnostics** to create one text file containing Windows and WSL log tails. Explorer selects the file for you. This works even when setup has not finished.
 
-See README.md for prerequisites, reset scope, paths and honest validation limits.
+Close old launcher windows after updating. Keep the repository folder intact. Use **Stop training** before resetting. **Reset project** asks for DELETE once and creates no archive.
+
+Console fallback: run XgoDuck.ps1; option 8 exports diagnostics.

@@ -24,3 +24,9 @@ jobs:
       - name: Test actual child process argument passing
         shell: powershell
         run: .\tests\test_windows_launcher.ps1
+      - name: Construct desktop and check layout
+        shell: powershell
+        run: powershell.exe -NoProfile -STA -File .\XgoDuck.Desktop.ps1 -SelfTest
+      - name: Exercise full launcher success and failure paths with WSL fixture
+        shell: powershell
+        run: .\tests\test_windows_workflow.ps1

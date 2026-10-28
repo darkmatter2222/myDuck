@@ -1,3 +1,12 @@
+# 2.1.0
+
+- Add a Windows desktop control panel with named actions, visible URLs and live task logs; retain the console fallback.
+- Export one bounded diagnostics text file with Windows transcripts and WSL state/setup/preflight/training/evaluation/service logs, including when WSL cannot start.
+- TensorBoard now prepares its own dependencies and can start before the training checkout exists.
+- Merge native progress as readable text instead of PowerShell error-record formatting.
+- Persist setup logs, add unbuffered verification phases, heartbeat and timeout supervision.
+- Add actual local HTTP readiness, installer fixture, diagnostic recovery and Windows full-launcher success/failure tests. GPU/Norton testing remains a local requirement.
+
 # 2.0.1
 
 - Use plain PowerShell -File worker invocation instead of encoded command text.

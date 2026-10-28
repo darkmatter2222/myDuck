@@ -3,7 +3,7 @@ function Get-XgoWorkerArguments {
  param(
   [Parameter(Mandatory=$true)][string]$ScriptPath,
   [Parameter(Mandatory=$true)]
-  [ValidateSet('run','viewer','tensorboard','benchmark','setup')][string]$Action,
+  [ValidateSet('run','viewer','tensorboard','benchmark','setup','stop','reset','diagnostics')][string]$Action,
   [Parameter(Mandatory=$true)][ValidatePattern('^[A-Za-z0-9_.-]+$')][string]$Distribution
  )
  if ($ScriptPath.IndexOf('"') -ge 0 -or $ScriptPath.Contains("`r") -or $ScriptPath.Contains("`n")) {

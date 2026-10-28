@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
- [ValidateSet('menu','run','status','viewer','tensorboard','log','stop','benchmark','reset','setup','selftest')]
+ [ValidateSet('menu','run','status','viewer','tensorboard','log','stop','benchmark','reset','setup','selftest','diagnostics')]
  [string]$Task='menu',
  [string]$Distro='',
  [switch]$Hold
@@ -17,7 +17,7 @@ function Native([string[]]$Arguments) {
  try {
   # Windows PowerShell 5.1 wraps native stderr as ErrorRecords; exit code is authoritative.
   $ErrorActionPreference='Continue'
-  & wsl.exe @Arguments 2>&1 | Out-Host
+  & wsl.exe @Arguments 2>&1 | ForEach-Object { Write-Host ($_.ToString().TrimEnd("`r")) }
   $script:Code=$LASTEXITCODE
  } finally {$ErrorActionPreference=$previous}
 }
@@ -64,6 +64,26 @@ function DeleteProject {
  Write-Host 'Close viewer/TensorBoard and stop training first. Separate legacy ~/xgoduck_rl and this launcher folder are outside this reset.'
  if ((Read-Host 'Type DELETE to confirm').Trim() -ieq 'DELETE') {Engine 'reset' @('--confirm','DELETE'); NeedSuccess 'Reset'}
 }
+function ExportDiagnostics {
+ $directory=Join-Path $script:Root 'diagnostics'
+ New-Item -ItemType Directory -Force -Path $directory | Out-Null
+ $report=Join-Path $directory ('myDuck-diagnostics-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'.txt')
+ @('myDuck diagnostics - review before sharing (includes usernames and local paths)',('Created: '+(Get-Date)),('Windows: '+[Environment]::OSVersion.VersionString),('PowerShell: '+$PSVersionTable.PSVersion.ToString())) | Set-Content -LiteralPath $report -Encoding UTF8
+ Get-ChildItem -LiteralPath (Join-Path $script:Root 'launcher-logs') -Filter '*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 12 | ForEach-Object {
+  Add-Content -LiteralPath $report -Encoding UTF8 -Value ("`n=== "+$_.Name+' (last 300 lines) ===')
+  Get-Content -LiteralPath $_.FullName -Tail 300 -ErrorAction SilentlyContinue | Add-Content -LiteralPath $report -Encoding UTF8
+ }
+ try {
+  InitializeWsl
+  $name=[IO.Path]::GetFileName($report)
+  Engine 'diagnostics' @('--output',($script:LinuxRoot+'/diagnostics/'+$name))
+  if ($script:Code -ne 0) {Add-Content -LiteralPath $report -Encoding UTF8 -Value 'WSL diagnostics failed; Windows logs retained.'}
+ } catch {Add-Content -LiteralPath $report -Encoding UTF8 -Value ('WSL unavailable: '+$_)}
+ $script:Code=0
+ Write-Host "DIAGNOSTICS READY: $report" -ForegroundColor Green
+ Write-Host 'Send this single text file. No checkpoint weights are included.'
+ Start-Process explorer.exe -ArgumentList ('/select,"'+$report+'"') | Out-Null
+}
 function Execute([string]$Action) {
  switch ($Action) {
   'setup' {Setup}
@@ -86,6 +106,7 @@ function Execute([string]$Action) {
   'benchmark' {Engine 'benchmark'; NeedSuccess 'Evaluation'}
   'selftest' {Engine 'unit'; NeedSuccess 'Self-test'}
   'reset' {DeleteProject}
+  'diagnostics' {ExportDiagnostics}
   default {Engine $Action; NeedSuccess $Action}
  }
 }
@@ -97,7 +118,7 @@ try {
  Start-Transcript -Path $log | Out-Null
  $script:Transcript=$true
  Write-Host "Launcher log: $log"
- InitializeWsl
+ if ($Task -ne 'diagnostics') {InitializeWsl}
  if ($Task -ne 'menu') {Execute $Task}
  else {
   $done=$false
@@ -105,6 +126,8 @@ try {
    Write-Host "`nXGO DUCK | Fresh-start training control center" -ForegroundColor Cyan
    Write-Host '1 Start/resume (also starts TensorBoard and waiting viewer)'
    Write-Host '2 Status   3 Viewer   4 TensorBoard   5 Logs   6 Evaluate'
+   Write-Host 'TensorBoard: http://localhost:6007 | Viewer: http://localhost:8080'
+   Write-Host '8 Export diagnostics to one shareable text file'
    Write-Host '7 Stop training   9 Delete project   10 Setup/repair   0 Exit menu'
    try {
     switch ((Read-Host 'Select').Trim()) {
@@ -115,6 +138,7 @@ try {
      '5' {Execute 'log'}
      '6' {Spawn 'benchmark'}
      '7' {Execute 'stop'}
+     '8' {ExportDiagnostics}
      '9' {DeleteProject}
      '10' {Spawn 'setup'}
      '0' {$done=$true}

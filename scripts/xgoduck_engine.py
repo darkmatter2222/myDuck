@@ -37,7 +37,7 @@ BEST_DIR = BASE / 'best'
 LOCK_PATH = HOME / '.xgoduck_oneclick.lock'
 PID_PATH = HOME / '.xgoduck_oneclick.pid'
 TASK = 'Mjlab-Velocity-Flat-XgoDuck'
-VERSION = '2.0.0-launcher-rebuild'
+VERSION = '2.1.0-desktop-diagnostics'
 SEED = 48017
 DATE_FORMAT = '%Y%m%d-%H%M%S'
 STAGE_A_UPDATES = 10000
@@ -942,15 +942,21 @@ def serve(cmd, name, port):
                 raise RuntimeError(f'Port {port} is occupied by another process. Close it before starting {name}.')
         log = REPORTS / 'services' / (name + '-' + stamp() + '.log')
         log.parent.mkdir(parents=True, exist_ok=True)
+        say(name, 'STARTING:', url, '(not ready until READY appears)')
         say('Service log:', log)
         with log.open('wb') as output:
-            child = subprocess.Popen(cmd, cwd=str(REPO), stdout=output,
+            child = subprocess.Popen(cmd, cwd=str(BASE), stdout=output,
                                      stderr=subprocess.STDOUT, start_new_session=True)
             try:
                 deadline = time.monotonic() + 600
                 ready = False
+                last_notice = 0.0
                 while child.poll() is None:
                     if not ready:
+                        if time.monotonic()-last_notice >= 15:
+                            say(name, 'initializing; waiting for HTTP:', url)
+                            say(log_tail(log,3))
+                            last_notice=time.monotonic()
                         try:
                             with urllib.request.urlopen(url,timeout=2) as response:
                                 ready = response.status == 200
@@ -987,13 +993,19 @@ def viewer_checkpoint(latest):
 
 
 def cmd_viewer(args):
+    say('Viewer URL: http://localhost:8080. The page starts ONLY after a checkpoint is loaded.')
     started=time.monotonic()
+    last_notice=0.0
     cp=viewer_checkpoint(args.latest)
     if cp is None and args.wait:
         say('Waiting for the first real training checkpoint. Preflight models are excluded.')
     while cp is None and time.monotonic()-started < args.wait:
         if time.monotonic()-started > 120 and not known_controller_pid():
-            raise RuntimeError('Training is not running; no checkpoint to display. Check the training window.')
+            say('VIEWER UNAVAILABLE: training is not running and no checkpoint exists. Click Start training first.')
+            return 0
+        if time.monotonic()-last_notice>=15:
+            say('VIEWER WAITING: no real checkpoint yet. http://localhost:8080 is not serving yet.')
+            last_notice=time.monotonic()
         time.sleep(5)
         cp=viewer_checkpoint(args.latest)
     if cp is None:
@@ -1009,13 +1021,17 @@ def cmd_viewer(args):
 
 
 def cmd_tensorboard(args):
+    say('TensorBoard URL: http://localhost:6007 (not port 6006). Preparing service...')
+    BASE.mkdir(parents=True,exist_ok=True)
     tb=REPO/'.venv/bin/tensorboard'
     if tb.exists():
         cmd=[str(tb)]
     else:
         uvx=HOME/'.local/bin/uvx'
-        if not uvx.exists() or not REPO.exists():
-            raise RuntimeError('Setup is incomplete. Choose Start or Setup first.')
+        if not uvx.exists():
+            say('Installing TensorBoard prerequisites automatically; full training setup is not required.')
+            rc=subprocess.call(['bash',str(Path(__file__).with_name('bootstrap.sh')),'--tensorboard-only'])
+            if rc: raise RuntimeError(f'TensorBoard preparation failed (exit {rc}). Export diagnostics for details.')
         cmd=[str(uvx),'--from','tensorboard==2.20.0','tensorboard']
     cmd+=['--logdir',str(RUN_ROOT),'--host','127.0.0.1','--port','6007']
     return serve(cmd,'tensorboard',6007)
@@ -1023,7 +1039,7 @@ def cmd_tensorboard(args):
 
 def cmd_log(args):
     candidates=[]
-    for folder in (REPORTS/'train',REPORTS/'eval',REPORTS/'preflight',REPORTS/'services'):
+    for folder in (REPORTS/'train',REPORTS/'eval',REPORTS/'preflight',REPORTS/'services',REPORTS/'setup'):
         if folder.exists():candidates+=list(folder.glob('*.log'))
     if not candidates:
         say('No training or evaluation logs yet.')
@@ -1047,6 +1063,47 @@ def cmd_benchmark(args):
     return 0
 
 
+def cmd_diagnostics(args):
+    """Bounded, local-only support report; no environment variables or model bytes."""
+    import platform
+    lines=['\n=== WSL diagnostics ===', 'Engine: '+VERSION, 'Time: '+iso(),
+           'Platform: '+platform.platform(), 'Python: '+sys.version,
+           'Project: '+str(BASE), 'Controller: '+str(known_controller_pid()),
+           'TensorBoard: http://localhost:6007', 'Viewer: http://localhost:8080']
+    try:
+        lines+=['Free GiB: %.2f'%(shutil.disk_usage(HOME).free/1024**3)]
+        lines+=['State:',json.dumps(read_json(STATE_PATH,{}),indent=2)]
+    except Exception as exc: lines+=['State unavailable: '+str(exc)]
+    gpu=shutil.which('nvidia-smi') or '/usr/lib/wsl/lib/nvidia-smi'
+    for cmd in ([gpu,'--query-gpu=name,memory.total,driver_version','--format=csv'],
+                ['git','-C',str(REPO),'rev-parse','HEAD']):
+        try:
+            result=subprocess.run(cmd,capture_output=True,text=True,timeout=10)
+            lines+=['Command: '+' '.join(cmd), 'Exit: '+str(result.returncode),result.stdout,result.stderr]
+        except Exception as exc:lines+=['Probe failed: '+str(exc)]
+    candidates=[]
+    for name in ('setup','preflight','train','eval','services'):
+        folder=REPORTS/name
+        if folder.exists():
+            candidates+=sorted(folder.glob('*.log'),key=lambda p:p.stat().st_mtime,reverse=True)[:3]
+    for log in candidates:
+        try:
+            # Read at most 96 KiB per log, even if a long training run produced gigabytes.
+            with log.open('rb') as fd:
+                fd.seek(max(0,log.stat().st_size-98304))
+                tail=fd.read().decode('utf-8','replace')
+            lines+=['\n=== '+str(log)+' (last 250 lines) ===','\n'.join(tail.splitlines()[-250:])]
+        except OSError as exc:lines+=['Cannot read '+str(log)+': '+str(exc)]
+    text='\n'.join(lines)+'\n'
+    if args.output:
+        output=Path(args.output)
+        output.parent.mkdir(parents=True,exist_ok=True)
+        with output.open('a',encoding='utf-8') as fd:fd.write(text)
+        say('Diagnostics saved:',output)
+    else:print(text)
+    return 0
+
+
 def cmd_unit(args):
     # These checks do not require CUDA/mjlab, only Python stdlib.
     assert checkpoint_index('model_1999.pt')==1999
@@ -1067,7 +1124,7 @@ def cmd_unit(args):
 def parser():
     p=argparse.ArgumentParser(description='XGO-Duck Gait-First Autopilot')
     sub=p.add_subparsers(dest='command',required=True)
-    for name in ('run','worker-train','worker-eval','status','active','stop','reset','viewer','tensorboard','log','benchmark','unit'):
+    for name in ('run','worker-train','worker-eval','status','active','stop','reset','viewer','tensorboard','log','benchmark','unit','diagnostics'):
         s=sub.add_parser(name)
         if name=='run':
             s.add_argument('--environments',type=int,default=DEFAULT_ENVIRONMENTS)
@@ -1092,6 +1149,7 @@ def parser():
             s.add_argument('--seeds',type=int,required=True)
             s.add_argument('--seconds',type=float,required=True)
             s.add_argument('--seed-offset',type=int,default=5000)
+        if name=='diagnostics':s.add_argument('--output')
         if name=='reset':s.add_argument('--confirm',required=True)
         if name=='viewer':
             s.add_argument('--device',default='cpu',choices=['cpu','cuda:0'])
@@ -1119,6 +1177,7 @@ def main():
     if args.command=='log':return cmd_log(args)
     if args.command=='benchmark':return cmd_benchmark(args)
     if args.command=='unit':return cmd_unit(args)
+    if args.command=='diagnostics':return cmd_diagnostics(args)
     return 2
 
 if __name__=='__main__':

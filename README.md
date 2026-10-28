@@ -6,7 +6,7 @@ Train XGO-Duck in simulation from a Windows launcher, with WSL2, checkpoint reco
 
 1. Clone this repository on Windows, or download and extract its ZIP. Keep the entire folder together.
 2. Double-click **START-XGODUCK.cmd**.
-3. Press **1**. Leave the training window open.
+3. Click **Start / resume training** in the desktop panel. Leave the training worker window open.
 
 Start installs the pinned upstream simulator and dependencies, checks CUDA, starts TensorBoard and a waiting viewer, runs an 8-update training/evaluation preflight, then starts/resumes the campaign. WSL starts automatically when invoked, including after a reboot. The first download and Warp compilation can take time; progress and errors remain visible.
 
@@ -24,13 +24,23 @@ To skip the menu:
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\XgoDuck.ps1 -Task run -Hold
 ```
 
+## Desktop control panel
+
+The default launcher opens a Windows desktop panel with named actions, visible service URLs, a task selector and the latest 250 lines of each task's log. Training workers remain separate, visible windows. A running worker window is not proof training succeeded; the log shows the actual phase and result.
+
+**Export diagnostics** creates `diagnostics/myDuck-diagnostics-<timestamp>.txt` and selects it in Explorer. It combines recent Windows transcripts, WSL setup/preflight/training/evaluation/service log tails, campaign state, upstream revision and a bounded GPU probe. It still exports Windows logs if WSL is unavailable. Review it before sharing: usernames and local paths are included; model weights and environment-variable dumps are not.
+
+The console menu remains available via `XgoDuck.ps1`. Option **8** exports the same report. Option **4** now prepares TensorBoard independently if training is not installed. TensorBoard can show an empty dashboard before training writes events. The viewer explicitly reports that port 8080 is unavailable while waiting for a checkpoint.
+
+Setup logs are persisted from the beginning under `~/xgoduck_oneclick/reports/setup`. GPU verification identifies each phase and emits a heartbeat every 15 seconds. It stops after 20 minutes with a specific timeout instead of waiting silently. Dependency installation has a two-hour limit. These are failure diagnostics, not promises about setup duration.
+
 ## What you see
 
 - **Training window:** setup, preflight, training progress, evaluation and recoverable errors. Worker windows stay open at completion or failure.
 - **TensorBoard:** http://localhost:6007, opened only after HTTP readiness. PPO curves are written by upstream training.
 - **Viewer:** http://localhost:8080, CPU playback of the first real checkpoint. It waits up to two hours for that checkpoint. This is a snapshot, not live policy hot-reloading. Close its window and choose **3** to load a newer snapshot.
 - **Status (2):** checkpoint paths, current phase, best measured score, and last error.
-- **Logs (5):** latest training, evaluation, preflight or service log. Windows startup logs are in `launcher-logs` beside the launcher.
+- **Logs (5):** latest training, evaluation, preflight or service log. Windows startup logs are in `launcher-logs` beside the launcher. The desktop shows these live.
 
 Viewer/TensorBoard failures have separate logs and do not terminate training. Opening either twice reuses the owned service. An unrelated process occupying the requested port produces a visible error. If automatic browser launch is unavailable in your WSL configuration, open the printed localhost URL manually.
 

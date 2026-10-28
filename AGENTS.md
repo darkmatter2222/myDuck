@@ -1,3 +1,7 @@
+# Desktop and diagnostics 2.1.0
+
+START-XGODUCK.cmd opens XgoDuck.Desktop.ps1. XgoDuck.ps1 remains the worker/console entry point. Desktop labels must distinguish waiting from ready; do not claim a worker process is successful training. Diagnostics must survive missing WSL and must not collect environment secrets or model weights. TensorBoard may prepare itself before training setup. Setup must log from the beginning and report the current verification phase. Tests now include Linux service/installer integration and Windows fixture end-to-end launch tests.
+
 # Launcher update 2.0.1
 
 Workers MUST use plain -File invocation through scripts/windows-worker.ps1, not encoded or evaluated command text. Use process-scoped RemoteSigned. Do not add antivirus exclusions or manipulate pending quarantine. Run tests/test_windows_launcher.ps1 on Windows in CI. This supersedes earlier encoded-argument guidance.

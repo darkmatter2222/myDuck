@@ -12,3 +12,5 @@ reports/
 wandb/
 
 launcher-logs/
+
+diagnostics/
