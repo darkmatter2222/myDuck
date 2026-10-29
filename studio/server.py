@@ -1,3 +1,5 @@
+import signal
+from .lifecycle import stop_existing,bind_server,identity
 import argparse,fcntl,json,logging,math,os,secrets,sys,threading,time,subprocess,urllib.parse
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 from pathlib import Path
@@ -92,14 +94,28 @@ def make_handler(manager,token,hosts):
 
 def main():
     parser=argparse.ArgumentParser(description='myDuck Studio local web utility')
+    parser.add_argument('--stop',action='store_true',help='Stop only the Studio web server; running workers continue')
     parser.add_argument('--port',type=int,default=8765);parser.add_argument('--state-dir',type=Path);parser.add_argument('--allow-host',action='append',default=[])
     args=parser.parse_args();manager=Manager(args.state_dir)
     logging.basicConfig(filename=manager.root/'studio.log',level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s')
+    record=manager.root/'server.json'
+    if args.stop:
+        print('Studio web server stopped; running workers are preserved.' if stop_existing(record) else 'No verified Studio instance is running for this workspace.')
+        return
+    stop_existing(record)
     lock=(manager.root/'server.lock').open('a+')
-    try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-    except BlockingIOError:raise SystemExit('Studio is already running. Open http://localhost:'+str(args.port))
+    for attempt in range(40):
+        try:
+            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB);break
+        except BlockingIOError:
+            if attempt==39:raise SystemExit('Studio is already running but cannot be safely identified. Stop it with Ctrl+C in its terminal, then retry.')
+            time.sleep(.05)
     token=secrets.token_urlsafe(32)
-    server=ThreadingHTTPServer(('127.0.0.1',args.port),make_handler(manager,token,{'localhost','127.0.0.1',*args.allow_host}))
+    try:server=bind_server(args.port,make_handler(manager,token,{'localhost','127.0.0.1',*args.allow_host}))
+    except (OSError,ValueError) as exc:raise SystemExit('Cannot start Studio: '+str(exc))
+    args.port=server.server_address[1]
+    record.write_text(json.dumps({'pid':os.getpid(),'identity':identity(os.getpid()),'port':args.port}))
+    signal.signal(signal.SIGTERM,lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
     def monitor():
         while True:
             try:manager.tick()
@@ -109,5 +125,6 @@ def main():
     print(f'\nmyDuck Studio 3.0\nOpen in your Windows browser: http://localhost:{args.port}\nHost: {os.uname().nodename}\nLogs: {manager.root}/studio.log\nCtrl+C stops the web server. Queued work pauses; running jobs retain their own processes.\n',flush=True)
     try:server.serve_forever()
     except KeyboardInterrupt:print('Studio stopped. Restart this command to reconnect to running jobs.')
-    finally:server.server_close();lock.close()
+    finally:
+        server.server_close();record.unlink(missing_ok=True);lock.close()
 if __name__=='__main__':main()

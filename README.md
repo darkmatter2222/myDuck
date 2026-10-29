@@ -86,3 +86,48 @@ Reset stops queued/active managed jobs and recognized project services before de
 ## Validation and scope
 
 See [BUILD-VERIFY.md](BUILD-VERIFY.md) for tests and verification limits. See [IDEAS-100.md](IDEAS-100.md) for 100 concrete ideas with explicit implementation status. The new UI/job manager ships now; research ideas are not presented as implemented training capabilities.
+
+## Studio 3.1: WSL start, update, restart and stop
+
+In **Windows PowerShell**, enter `wsl`. Then run these commands **inside Ubuntu** for an existing checkout:
+
+```bash
+cd ~/myDuck
+git pull --ff-only
+./start.sh
+```
+
+For a first installation only:
+
+```bash
+cd ~
+git clone https://github.com/darkmatter2222/myDuck.git
+cd myDuck
+./start.sh
+```
+
+Open the **exact localhost URL printed in the terminal** in your Windows browser. The preferred port is 8765; if another application owns it, Studio tries the next 19 ports. `./start.sh --port 8766` sets a different starting port. Keep this terminal open. Refresh the browser after restarting because its session token changes.
+
+Starting again automatically stops a **verified previous Studio web server for this metadata workspace**, then starts the current code. It preserves training workers, checkpoints, and service processes. An older Studio version without a process identity record must be stopped with Ctrl+C in its original terminal once. Unrelated port owners are never killed.
+
+```bash
+./start.sh --stop
+```
+
+This stops the web dashboard only. Running training and viewer/TensorBoard workers continue; queued work waits for the dashboard to return. To stop everything cleanly, cancel queued experiments and stop active jobs in **Experiments**, stop the viewer and TensorBoard under **System**, then run `./start.sh --stop`. To shut down all WSL distributions, run `wsl --shutdown` from **Windows PowerShell**; this also interrupts any other WSL workloads and can lose training progress since the last checkpoint.
+
+### Viewer, selection and comparisons
+
+- **Overview → Inspect your duck:** pick a checkpoint and click **Start viewer**. Wait for readiness, then **Open**. No checkpoint means there is nothing to simulate; the screen explains this. Stop an existing viewer in System before choosing another checkpoint.
+- **TensorBoard:** click **Start** on Overview, wait for readiness, then **Open**. Its normal port is 6007, not 6006.
+- **Checkpoint tree:** click a row to inspect it; checkboxes select files for bulk actions. **Select all matching** includes every non-deleted checkpoint matching your search, including collapsed branches. **Clear selection** deselects everything. Pins and active parents remain protected against deletion.
+- **Compare:** select one to six checkpoints; curves load on entry. Runs shared by selected checkpoints produce one training trajectory. Metric guidance explains interpretation, including metrics with no universal good direction. Change the axis between optimizer step and elapsed minutes.
+- **Add chart tile** keeps a metric visible beside others (up to 12). Tiles use optimizer step on their horizontal axis. **Save dashboard** stores the metric layout in this browser; **Save SVG** exports a tile; **Export displayed data** saves sampled data as JSON. Full histories remain in evidence exports. Hover chart points for values.
+- **Evaluate selected** queues fixed-command evaluations. Empty evaluation charts mean evaluations have not completed; saved training checkpoints do not themselves contain evaluation results.
+- Hover or focus the **?** next to experiment fields for definitions. More parallel environments do not substitute for independent seeds.
+
+### Policies and honest interpretation
+
+The four current profiles train **locomotion**. They are reward/command presets, not four distinct robot skills. Sitting, recovery and stand-up tasks are not implemented. Adding their names to a menu would not teach those skills. These need task-specific commands, rewards, termination logic and physical evaluation before being offered as trainable behaviors.
+
+See [IDEAS-200.md](IDEAS-200.md) for 100 additional analysis and utility proposals, clearly marked as a roadmap rather than implemented functionality.
