@@ -1,120 +1,88 @@
-## Studio update 2.3.0
+# myDuck Studio 3
 
-Update with `git pull --ff-only`, close the old studio and reopen `START-XGODUCK.cmd`.
+A Linux-first web utility for XGO-Duck experiments. Run it in WSL or on a Linux NVIDIA server; control it from your browser. No Windows launcher, PowerShell windows, Node installation or frontend build is needed.
 
-The dark desktop now runs workers hidden, with no live-log panel or held worker consoles. Open saved logs and Export diagnostics remain available. Every task saves stdout, stderr, a PowerShell transcript and a JSON completion result under `launcher-logs`; desktop startup errors go to `desktop-startup.log`. The status area reports background activity and completion/failure/paused outcomes.
+## Start in WSL
 
-Start/resume checks the campaign before installing dependencies. A learning stall is an expected paused state (exit 20), not a traceback. Start no longer automatically launches TensorBoard or the viewer: open each explicitly when needed. Recognized existing project listeners are reused. An unrelated or unverified port owner is never killed; its conflict is reported in the saved log and status.
-
-To start completely fresh, click Reset project and accept its single confirmation. It stops recognized project processes, waits up to 20 seconds and deletes only `~/xgoduck_oneclick`. If a process does not stop or the project lock is still held, deletion is refused and the error is logged. Your Windows repository and its launcher logs remain. There is no archive. After reset reports completion, click Start/resume for fresh setup and training.
-
-Old held console windows may remain from the previous version; close them after stopping old tasks. Closing the new studio does not stop background work. The progress indicators describe tasks launched by that studio session, not live GPU metrics. Training quality is still subject to evaluation; these launcher repairs do not establish a successful learned gait.
-
-Validation: 33 Linux tests; Windows CI covers parsing, desktop construction/layout, actual worker argument passing, native stderr, structured paused outcomes and confirmed background reset through a WSL fixture. Real Windows/WSL/Norton/GPU behavior on your machine still requires verification.
-
-## Training stuck after an overnight run?
-
-Stop training, update this repository, reopen the dark launcher and click **Export training data**. Send the ZIP selected in Explorer. Do not reset your models. See [TRAINING-REVIEW.md](TRAINING-REVIEW.md) for the repeated-attempt fix, export contents and next training decisions.
-
-# myDuck: XGO-Duck training control center
-
-Train XGO-Duck in simulation from a Windows launcher, with WSL2, checkpoint recovery, automatic evaluation, TensorBoard and a browser viewer.
-
-## Start
-
-1. Clone this repository on Windows, or download and extract its ZIP. Keep the entire folder together.
-2. Double-click **START-XGODUCK.cmd**.
-3. Click **Start / resume training** in the desktop panel. Leave the training worker window open.
-
-Start installs the pinned upstream simulator and dependencies, checks CUDA, starts TensorBoard and a waiting viewer, runs an 8-update training/evaluation preflight, then starts/resumes the campaign. WSL starts automatically when invoked, including after a reboot. The first download and Warp compilation can take time; progress and errors remain visible.
-
-Requirements: Windows with an NVIDIA CUDA-capable GPU (target: RTX 5090), current Windows NVIDIA driver, Ubuntu on **WSL2**, internet access, and at least 15 GiB free in WSL for setup (substantially more for a long campaign). Ubuntu needs `python3`, `git`, `curl`, `flock` and normal system libraries. If WSL is absent, run `wsl --install -d Ubuntu` from an administrator terminal, reboot if requested, and finish Ubuntu's first-user setup. The launcher reports missing prerequisites rather than hiding an administrator/password prompt inside unattended work.
-
-If more than one Ubuntu distribution is installed, use:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\XgoDuck.ps1 -Distro Ubuntu-24.04
-```
-
-To skip the menu:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\XgoDuck.ps1 -Task run -Hold
-```
-
-## Desktop control panel
-
-The default launcher opens a Windows desktop panel with named actions, visible service URLs, a task selector and the latest 250 lines of each task's log. Training workers remain separate, visible windows. A running worker window is not proof training succeeded; the log shows the actual phase and result.
-
-**Export diagnostics** creates `diagnostics/myDuck-diagnostics-<timestamp>.txt` and selects it in Explorer. It combines recent Windows transcripts, WSL setup/preflight/training/evaluation/service log tails, campaign state, upstream revision and a bounded GPU probe. It still exports Windows logs if WSL is unavailable. Review it before sharing: usernames and local paths are included; model weights and environment-variable dumps are not.
-
-The console menu remains available via `XgoDuck.ps1`. Option **8** exports the same report. Option **4** now prepares TensorBoard independently if training is not installed. TensorBoard can show an empty dashboard before training writes events. The viewer explicitly reports that port 8080 is unavailable while waiting for a checkpoint.
-
-Setup logs are persisted from the beginning under `~/xgoduck_oneclick/reports/setup`. GPU verification identifies each phase and emits a heartbeat every 15 seconds. It stops after 20 minutes with a specific timeout instead of waiting silently. Dependency installation has a two-hour limit. These are failure diagnostics, not promises about setup duration.
-
-## What you see
-
-- **Training window:** setup, preflight, training progress, evaluation and recoverable errors. Worker windows stay open at completion or failure.
-- **TensorBoard:** http://localhost:6007, opened only after HTTP readiness. PPO curves are written by upstream training.
-- **Viewer:** http://localhost:8080, CPU playback of the first real checkpoint. It waits up to two hours for that checkpoint. This is a snapshot, not live policy hot-reloading. Close its window and choose **3** to load a newer snapshot.
-- **Status (2):** checkpoint paths, current phase, best measured score, and last error.
-- **Logs (5):** latest training, evaluation, preflight or service log. Windows startup logs are in `launcher-logs` beside the launcher. The desktop shows these live.
-
-Viewer/TensorBoard failures have separate logs and do not terminate training. Opening either twice reuses the owned service. An unrelated process occupying the requested port produces a visible error. If automatic browser launch is unavailable in your WSL configuration, open the printed localhost URL manually.
-
-## Training strategy
-
-The initial 10,000 PPO updates follow one continuous policy, in 2,000-update blocks, with 4,096 parallel environments and checkpoints every 250 updates. The gait-discovery profile prioritizes commanded forward motion and reduces competing posture/head objectives. This is an engineering hypothesis, not a known optimal recipe.
-
-After each block, a separate process measures standing, forward travel, reverse and turns at fixed commands/seeds. Selection depends on actual displacement and survival, not training reward alone. The best model is retained while learning continues. After the baseline, the controller tries longer reward/exploration profiles; meaningful forward progress unlocks broader command training. Occasional fresh seeds are deliberate later experiments, not a reaction to failed evaluation.
-
-The default campaign has **no 24-hour timer and no automatic claim of completion**. It continues while healthy until you choose **7** or press Ctrl+C in training. Re-run **1** to resume saved work. Three consecutive failed block evaluations stop the campaign with models preserved; repeated training failures also stop rather than spin forever. A bounded CLI mode exists through `xgoduck_engine.py run --max-updates 10000` (omit `--forever`).
-
-A provisional champion may only stand. Status shows its measured forward progress. ONNX export is attempted only after a minimum movement/survival gate, and export errors are warnings. Passing this gate is not certification for physical deployment. Walking, stand-up, object interaction and vision are separate capabilities; this project trains the velocity/walking policy.
-
-## Reset: one confirmation, no archives
-
-Stop training and close viewer/TensorBoard. Choose **9**, then type **DELETE** once.
-
-This permanently removes **`~/xgoduck_oneclick`**, including its upstream checkout, dependencies, checkpoints, logs, best policy and controller state. It never archives. It refuses to delete while recognized project processes hold the files. Your Windows launcher checkout and a separate legacy `~/xgoduck_rl` are outside the reset scope. The next Start reinstalls the project.
-
-## Installed layout
-
-| Path inside Ubuntu | Purpose |
-|---|---|
-| `~/xgoduck_oneclick/xgoduck_rl` | Pinned upstream simulator, robot model and Python environment |
-| `~/xgoduck_oneclick/state.json` | Atomic campaign state |
-| `~/xgoduck_oneclick/reports` | Evaluation JSON/CSV and complete subprocess logs |
-| `~/xgoduck_oneclick/best` | Champion copy and qualifying ONNX export |
-| `~/xgoduck_oneclick/xgoduck_rl/logs/rsl_rl/xgoduck_velocity` | PPO checkpoints and TensorBoard events |
-
-All project control code is in this repository. The first run downloads upstream source/assets and packages; GPU libraries and wheels are not committed here. Upstream is pinned to `LuwuDynamics/xgoduck_rl` revision `725ed0c`, which pins mjlab 1.3.0, Warp 1.12.0 and PyTorch 2.9.1. TensorBoard fallback is pinned to 2.20.0 with setuptools 80.9.0 and Python 3.12 because this release imports pkg_resources. Full training setup uses its existing TensorBoard and does not create a second installation. Dashboard startup failures do not block the training campaign. No cloud training account is needed.
-
-## Research and limits
-
-- [XGO-Duck upstream](https://github.com/LuwuDynamics/xgoduck_rl): robot-specific geometry, masses, BAM actuators, PPO and ONNX workflow. A MicroDuck checkpoint is not assumed to fit XGO-Duck.
-- [MicroDuck issue 46](https://github.com/pollen-robotics/microduck_rl/issues/46): reports standing-in-place convergence despite reward changes. More iterations alone do not prove walking.
-- [Google locomotion research](https://research.google/pubs/sim-to-real-learning-agile-locomotion-for-quadruped-robots/): accurate simulation, randomization and optional reference motion can aid transfer. This is supporting research, not proof for this biped.
-- [Learning locomotion skills for Cassie](https://proceedings.mlr.press/v100/xie20a.html): reference-motion guidance and iterative design provide another path if gait discovery remains stuck. A validated XGO-Duck reference gait is not available in this package, so an untested demonstration is not silently substituted.
-
-The practical starting approach here is the robot-specific pinned PPO stack, a motion-focused curriculum, measured evaluation and retained checkpoints. A teacher/reference gait is a future option if measured results stall. No software can promise a perfect or physically ready duck after an unattended run.
-
-## Validation
+Open Ubuntu and run:
 
 ```bash
-python3 -m unittest discover -s tests -v
-python3 -m py_compile scripts/xgoduck_engine.py
-bash -n scripts/bootstrap.sh
+sudo apt update
+sudo apt install -y python3 git curl
+cd ~
+git clone https://github.com/darkmatter2222/myDuck.git
+cd myDuck
+./start.sh
 ```
 
-GitHub Actions runs offline tests and Windows PowerShell 5.1 parsing. These checks do not validate GPU physics, local WSL networking, browser rendering or real-robot behavior. The live preflight on your machine is mandatory; do not treat offline test success as a completed CUDA run.
+Open **http://localhost:8765** in your Windows browser. The web app starts immediately with system Python 3.10+. Simulator dependencies download when you choose **Install / verify environment** or queue your first experiment. Training requires NVIDIA GPU access (`nvidia-smi` inside WSL) and at least 15 GiB free for setup. Keep this terminal running; closing the browser does not stop training.
 
-## Norton behavioral alert / disappearing workers
+If you already cloned into WSL:
 
-Version 2.0.1 replaces encoded PowerShell worker commands with visible `-File` calls and uses process-scoped `RemoteSigned` instead of `Bypass`. The parent reports an immediate worker exit. No antivirus exclusions, security-service changes or quarantine actions are performed by this project.
+```bash
+cd ~/myDuck
+git pull --ff-only
+./start.sh
+```
 
-A reported IDP.HELU.PSE95 alert terminated PowerShell/WSL while launching workers. An antivirus-terminated process cannot keep its own window open. The encoded command is a suspected trigger, not a verified diagnosis of the local system. This change does not clear Norton's pending quarantine or guarantee Norton will accept the new command.
+Do not start from the old Windows checkout or old PowerShell launchers. Stop old training before migrating. Existing models under `~/xgoduck_oneclick` are indexed without deleting them. The repo contains source; runtime data stays outside it. Updating source does not reset trained models.
 
-Close the old menu, update this checkout with `git pull --ff-only` from Command Prompt, and run Norton LiveUpdate. If Norton still lists pending quarantine of PowerShell/WSL, stop relaunching and ask Norton Support to review that pending action. Do not broadly exclude PowerShell, WSL, Windows folders or all scripts. Norton documents suspected false-positive reports at https://support.norton.com/sp/en/us/home/current/solutions/kb20090410134005EN . Include the detection name, alert ID, repository URL and exact logged command. This repository cannot validate your installed Windows binaries or cancel Norton's reboot action.
+## The workspace
 
-Prefer a Git clone. ZIP downloads may mark scripts as internet-origin, which RemoteSigned can reject. Review the downloaded files and their provenance; do not weaken system-wide execution policy to resolve a launch error.
+| Page | What you can do |
+|---|---|
+| Overview | See runtime readiness, GPU utilization, model count, recent jobs, and evaluation trajectory |
+| Experiments | Queue finite or repeating training pipelines, inspect saved settings/results/logs, cancel/stop jobs, clone configurations |
+| Checkpoint tree | Inspect lineage; select a parent; branch/resume; pin, label, group into collections; preview and confirm deletion |
+| Compare | Compare evaluations/configurations and overlay TensorBoard metrics across up to six selected runs |
+| System & resources | Inspect host/GPU/disk/processes, start setup, stop services, export diagnostics/evidence, reset training data |
+
+The viewer and TensorBoard stay separate: port **8080** and **6007** respectively. Their links activate after HTTP readiness and project ownership checks. After a reset, there is **no checkpoint to view**. Train until one is saved, select it in the tree, and choose **View checkpoint**. To switch, stop the existing viewer in System, then select another checkpoint. The viewer shows a snapshot, not live weights.
+
+## Experiments and training
+
+Create an experiment from random weights or any existing checkpoint. Each stage has a profile, update count, number of blocks and optional overrides. Stages continue from the previous stage's latest checkpoint, without jumping back to a champion on every rejected block. The original branch remains intact. New experiments do not automatically prune old checkpoints.
+
+Supported controls: environment count, checkpoint interval, seed, learning rate, entropy coefficient, nine reward weights, forward/lateral/yaw command ranges, evaluation environments/seeds/duration, finite stage sequences, repeating sequences, and a configurable non-improvement pause limit. Not every simulator parameter is exposed; unknown fields are rejected rather than silently ignored. Editing settings creates a new experiment. Effective simulator configurations are also saved by upstream in each run's `params/` directory.
+
+There is one queued training/evaluation/setup/export job at a time. CPU viewers and TensorBoard may run alongside training. Each new training job first exercises an 8-update training/evaluation preflight. Training blocks save checkpoints and are evaluated for standing, forward, reverse and turning behavior. A learning-stall pause is explicit and configurable; set the limit to 0 only if you intentionally want to disable it. Errors and low disk space still halt a job. Repeating mode repeats your chosen stage sequence; it is not an autonomous hyperparameter optimizer.
+
+Run settings and provenance are immutable JSON snapshots. The app records job state in SQLite, while each worker writes durable logs and results. Restarting the web server reconnects to recognized worker processes. After a worker or machine crash, it does **not** silently replay a job: inspect the latest saved checkpoint and branch from it. Queued jobs resume dispatch when the web app starts. Stop/cancel unwanted queued work before leaving it unattended.
+
+The training backend remains pinned to XGO-Duck upstream **725ed0c** rather than changing simulator APIs during the UI rebuild. The 61-observation / 14-action architecture is retained. Reward and curriculum profiles are experimental. Runtime, kernel, CUDA and real-robot convergence are not guaranteed by passing web tests.
+
+## Checkpoint management
+
+The tree groups runs and links their checkpoint lineage. File moves are represented by **collections**, which preserve upstream resume paths. Parent links inferred from old logs can be unknown; the UI does not invent missing history. Select one checkpoint and choose **Branch / resume** to continue into a new run. Multiple selected checkpoints can be deleted after a size/path preview and one confirmation. Pinned checkpoints and those needed by active/queued jobs are protected. Deleted files remain as history entries.
+
+ONNX export is available for an individually selected checkpoint. Download the completed artifact from the job history. Exporting a file is not certification that the policy walks or is safe on hardware. Arbitrary checkpoint averaging/merging is deliberately absent: weight interpolation does not establish combined behavior. Teacher distillation, multi-skill routing and validated reference-motion training are research directions in [IDEAS-100.md](IDEAS-100.md).
+
+## Comparisons and evidence
+
+Compare shows run-level metrics from TensorBoard events with up to 500 samples per tag/run, by step or elapsed time. These are distinct from fixed-command evaluation results. Changes in reward weights can change reward scale, so compare displacement/survival and compatible configurations alongside reward. Training steps may overlap across resumed runs. Charts do not relabel them as one continuous optimization history.
+
+Export training evidence from System. Download the ZIP from the completed export job. It contains original events, unsampled scalar CSV when TensorBoard is available, evaluation files, configurations, lineage, checkpoint inventory, source files, Studio database snapshot and job logs. Read its manifest for caps/omissions. Stop training for a consistent snapshot. Logs/configuration may contain local paths or private information. Model weights are not included. No automatic upload occurs.
+
+## Run on a Linux server
+
+Clone and start the same way on the server. From Windows, forward the app and optional services:
+
+```powershell
+ssh -N -L 8765:127.0.0.1:8765 -L 8080:127.0.0.1:8080 -L 6007:127.0.0.1:6007 your-user@your-server
+```
+
+Then browse `http://localhost:8765`. The default listener is loopback only. This is a single-user local utility with host/origin checks and a per-server request token, not a hardened public multi-user hosting service. Do not expose it directly to the Internet. Use SSH forwarding. Set environment count to suit the GPU; the default is 4096, and a smaller GPU can use 2048 as an initial experiment rather than an assumed performance guarantee.
+
+Run the app inside `tmux` on a server if it should survive SSH logout. Stopping the web server leaves detached workers running; restarting reconnects. A Windows/WSL shutdown still stops Linux processes. Windows sleep prevention is no longer handled by a launcher: configure your host power settings for unattended training.
+
+## Files and reset
+
+- `~/.local/share/myduck-studio/`: Studio database, audit, immutable job configurations, stdout/stderr, exported artifacts and `studio.log`.
+- `~/xgoduck_oneclick/`: pinned simulator, virtualenv, run checkpoints, event logs and evaluations.
+- `./start.sh --port 8765 --state-dir /path/to/studio-state`: customize web port and Studio metadata location. Runtime location remains the bounded app-owned path above.
+
+Reset stops queued/active managed jobs and recognized project services before deleting **only** `~/xgoduck_oneclick`. It preserves the Studio database and job logs. If processes cannot stop, it refuses deletion. No archive is created. The web server remains available throughout reset; wait for the reset job to complete before creating a new experiment.
+
+## Validation and scope
+
+See [BUILD-VERIFY.md](BUILD-VERIFY.md) for tests and verification limits. See [IDEAS-100.md](IDEAS-100.md) for 100 concrete ideas with explicit implementation status. The new UI/job manager ships now; research ideas are not presented as implemented training capabilities.

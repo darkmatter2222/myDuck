@@ -1,54 +1,47 @@
-name: Validate launcher and controller
+name: Validate Linux web studio
 on: [push, pull_request, workflow_dispatch]
 jobs:
-  controller:
+  studio:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - run: python -m unittest discover -s tests -v
-      - run: python -m py_compile scripts/xgoduck_engine.py
-      - run: bash -n scripts/bootstrap.sh
-  tensorboard-install:
+      - run: python -m compileall -q studio scripts
+      - run: bash -n start.sh scripts/bootstrap.sh
+      - run: node --check web/app.js
+      - name: Start actual app and verify health, UI and protected API
+        run: |
+          ./start.sh --port 18765 --state-dir /tmp/myduck-ci > /tmp/myduck-start.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" || true' EXIT
+          for i in $(seq 1 30); do
+            if curl --fail -s http://localhost:18765/health > /tmp/health.json; then break; fi
+            sleep 1
+          done
+          python - <<'PY'
+          import json,re,urllib.request
+          root='http://localhost:18765'
+          assert json.load(urllib.request.urlopen(root+'/health'))['app']=='myduck-studio'
+          html=urllib.request.urlopen(root).read().decode()
+          assert 'Checkpoint tree' in html
+          token=re.search(r'name="studio-token" content="([^"]+)"',html)[1]
+          request=urllib.request.Request(root+'/api/state',headers={'X-Studio-Token':token})
+          state=json.load(urllib.request.urlopen(request))
+          assert state['models']==[]
+          assert not state['services']['viewer']['ready']
+          print('Actual web server and empty-state checks passed')
+          PY
+  tensorboard:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: python -m pip install uv
-      - name: Verify real isolated TensorBoard installation
-        run: uv tool run --python 3.12 --with setuptools==80.9.0 --from tensorboard==2.20.0 tensorboard --version
-  windows-launcher:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Parse with Windows PowerShell 5.1
-        shell: powershell
-        run: |
-          $tokens=$null; $errors=$null
-          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $pwd 'XgoDuck.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
-          if ($errors.Count) { $errors | Format-List; exit 1 }
-      - name: Test actual child process argument passing
-        shell: powershell
-        run: .\tests\test_windows_launcher.ps1
-      - name: Construct desktop and check layout
-        shell: powershell
-        run: powershell.exe -NoProfile -STA -File .\XgoDuck.Desktop.ps1 -SelfTest
-      - name: Verify CMD entry point saves startup output
-        shell: powershell
-        run: |
-          cmd.exe /c START-XGODUCK.cmd -SelfTest
-          $deadline=(Get-Date).AddSeconds(30)
-          $ok=$false
-          do {
-            Start-Sleep -Milliseconds 500
-            if (Test-Path 'launcher-logs/desktop-startup.log') {
-              $ok=(Get-Content 'launcher-logs/desktop-startup.log' -Raw) -match 'Desktop construction and layout checks passed'
-            }
-          } until ($ok -or (Get-Date) -gt $deadline)
-          if (-not $ok) {throw 'CMD launcher did not complete its desktop self-test'}
-      - name: Exercise full launcher success and failure paths with WSL fixture
-        shell: powershell
-        run: .\tests\test_windows_workflow.ps1
+      - run: uv tool run --python 3.12 --with setuptools==80.9.0 --from tensorboard==2.20.0 tensorboard --version

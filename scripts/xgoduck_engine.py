@@ -37,7 +37,7 @@ BEST_DIR = BASE / 'best'
 LOCK_PATH = HOME / '.xgoduck_oneclick.lock'
 PID_PATH = HOME / '.xgoduck_oneclick.pid'
 TASK = 'Mjlab-Velocity-Flat-XgoDuck'
-VERSION = '2.3.0-background-studio'
+VERSION = '3.0.0-web-studio'
 SEED = 48017
 DATE_FORMAT = '%Y%m%d-%H%M%S'
 STAGE_A_UPDATES = 10000
@@ -430,7 +430,13 @@ def worker_train(args):
     cfg.agent.save_interval=args.save_every
     cfg.agent.run_name=args.tag
     cfg.agent.seed=args.seed
-    profile=PROFILES[args.profile]
+    profile=dict(PROFILES[args.profile])
+    custom={}
+    if os.environ.get('MYDUCK_OVERRIDES'):
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+        from studio.schema import overrides
+        custom=overrides(json.loads(os.environ['MYDUCK_OVERRIDES']))
+        profile.update({k:v for k,v in custom.items() if k in profile})
     cfg.agent.algorithm.entropy_coef=profile['entropy']
     cfg.agent.algorithm.learning_rate=profile['lr']
     if args.profile!='generalize':
@@ -471,6 +477,11 @@ def worker_train(args):
     cfg.env.rewards['action_rate_l2'].weight=profile['smooth']
     cfg.env.rewards['forward_progress'] = RewardTermCfg(func=forward_progress_reward,
              weight=profile['progress'],params={'command_name':'twist'})
+    if custom:
+        ranges=cfg.env.commands['twist'].ranges
+        ranges.lin_vel_x=(custom.get('forward_min',ranges.lin_vel_x[0]),custom.get('forward_max',ranges.lin_vel_x[1]))
+        if 'lateral_max' in custom:ranges.lin_vel_y=(-custom['lateral_max'],custom['lateral_max'])
+        if 'yaw_max' in custom:ranges.ang_vel_z=(-custom['yaw_max'],custom['yaw_max'])
     if args.parent:
         src=Path(args.parent)
         if not src.is_file():
@@ -641,7 +652,7 @@ def significant_improvement(candidate:dict,incumbent:dict|None):
 
 def evaluate_checkpoint(s:dict,ck:Path,eval_envs:int=2,eval_seeds:int=2,seconds:float=10.0):
     REPORTS.mkdir(parents=True,exist_ok=True)
-    out=REPORTS/'eval'/f'{ck.parent.name}__{ck.stem}__{VERSION}.json'
+    out=REPORTS/'eval'/f'{ck.parent.name}__{ck.stem}__{VERSION}__e{eval_envs}-s{eval_seeds}-t{seconds}.json'
     if out.is_file():
         prev=read_json(out)
         if prev and prev.get('version')==VERSION:
@@ -1060,7 +1071,7 @@ def cmd_viewer(args):
     say('Viewer URL: http://localhost:8080. The page starts ONLY after a checkpoint is loaded.')
     started=time.monotonic()
     last_notice=0.0
-    cp=viewer_checkpoint(args.latest)
+    cp=Path(args.checkpoint) if getattr(args,'checkpoint',None) else viewer_checkpoint(args.latest)
     if cp is None and args.wait:
         say('Waiting for the first real training checkpoint. Preflight models are excluded.')
     while cp is None and time.monotonic()-started < args.wait:
@@ -1217,6 +1228,7 @@ def parser():
         if name=='export-training':s.add_argument('--output',required=True)
         if name=='reset':s.add_argument('--confirm',required=True)
         if name=='viewer':
+            s.add_argument('--checkpoint')
             s.add_argument('--device',default='cpu',choices=['cpu','cuda:0'])
             s.add_argument('--latest',action='store_true')
             s.add_argument('--wait',type=float,default=0)

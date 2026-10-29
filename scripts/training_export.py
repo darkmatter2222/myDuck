@@ -13,6 +13,7 @@ import sys
 import tempfile
 import time
 import zipfile
+import sqlite3
 
 MAX_TOTAL=2*1024**3
 MAX_FILE=512*1024**2
@@ -42,8 +43,9 @@ def scalar_csv(root, output):
     print(json.dumps({'rows':count,'warnings':warnings}))
     return 0
 
-def export_training(base, source, output, max_total=MAX_TOTAL):
+def export_training(base, source, output, max_total=MAX_TOTAL, studio_root=None):
     base=Path(base).resolve();source=Path(source).resolve();output=Path(output).resolve()
+    studio_root=Path(studio_root or Path.home()/'.local/share/myduck-studio').resolve()
     if output.exists():raise FileExistsError('Export already exists: '+str(output))
     output.parent.mkdir(parents=True,exist_ok=True)
     manifest={'schema':1,'created_unix':time.time(),'files':[],'warnings':[],
@@ -54,7 +56,7 @@ def export_training(base, source, output, max_total=MAX_TOTAL):
         def capture(path, name):
             if path.is_symlink() or not path.is_file():return
             # Never follow symlinked parent directories outside intended roots.
-            allowed=source if str(name).startswith(('source/','windows/')) else base
+            allowed=studio_root if str(name).startswith('studio-data/') else (source if str(name).startswith(('source/','windows/')) else base)
             if not path.resolve().is_relative_to(allowed):
                 manifest['warnings'].append('Skipped outside-root path: '+str(path));return
             stat=path.stat();size=stat.st_size
@@ -94,6 +96,19 @@ def export_training(base, source, output, max_total=MAX_TOTAL):
         for path in sorted((source/'scripts').glob('*')):
             if path.suffix in ('.py','.sh','.ps1'):capture(path,Path('source/scripts')/path.name)
         for path in sorted((source/'launcher-logs').glob('*.log')):capture(path,Path('windows')/path.name)
+        for folder in ('studio','web'):
+            for path in sorted((source/folder).glob('*')):
+                if path.suffix in ('.py','.html','.css','.js'):capture(path,Path('source')/folder/path.name)
+        if studio_root.exists():
+            for path in sorted((studio_root/'jobs').rglob('*')):
+                if path.suffix in ('.json','.log'):capture(path,Path('studio-data')/path.relative_to(studio_root))
+            capture(studio_root/'studio.log',Path('studio-data/studio.log'))
+            database=studio_root/'studio.sqlite3'
+            if database.is_file():
+                try:
+                    (stage/'studio-data').mkdir(exist_ok=True)
+                    with sqlite3.connect('file:'+str(database)+'?mode=ro',uri=True) as srcdb,sqlite3.connect(stage/'studio-data/studio.sqlite3') as dstdb:srcdb.backup(dstdb)
+                except sqlite3.Error as exc:manifest['warnings'].append('Studio database snapshot: '+str(exc))
         inventory=[]
         if runs.exists():
             for path in sorted(runs.rglob('model_*.pt')):
