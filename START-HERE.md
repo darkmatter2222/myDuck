@@ -1,3 +1,7 @@
+## Training stuck after an overnight run?
+
+Stop training, update this repository, reopen the dark launcher and click **Export training data**. Send the ZIP selected in Explorer. Do not reset your models. See [TRAINING-REVIEW.md](TRAINING-REVIEW.md) for the repeated-attempt fix, export contents and next training decisions.
+
 # Start here
 
 Double-click **START-XGODUCK.cmd**, then click **Start / resume training**.

@@ -1,3 +1,10 @@
+# 2.2.0 — training evidence and stall protection
+
+- Export training history from dark desktop / console option 11, preserving models.
+- Stop repeated rejected branches, including existing campaigns; keep champion separate from continuing candidate.
+- Require forward-task survival and progress before generalization / new walking exports.
+- Record parent and score in history; document research and remaining GPU validation.
+
 # TensorBoard dependency fix
 
 - Full setup verifies the TensorBoard already installed in the training environment; it no longer creates a redundant isolated install.

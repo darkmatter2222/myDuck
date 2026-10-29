@@ -37,7 +37,7 @@ BEST_DIR = BASE / 'best'
 LOCK_PATH = HOME / '.xgoduck_oneclick.lock'
 PID_PATH = HOME / '.xgoduck_oneclick.pid'
 TASK = 'Mjlab-Velocity-Flat-XgoDuck'
-VERSION = '2.1.0-desktop-diagnostics'
+VERSION = '2.2.0-training-audit'
 SEED = 48017
 DATE_FORMAT = '%Y%m%d-%H%M%S'
 STAGE_A_UPDATES = 10000
@@ -217,13 +217,35 @@ def _copy_best_model(path:Path):
     return target
 
 
+def gait_ready(ev):
+    # Forward-task survival, not survival averaged with easier standing tasks.
+    records=[r for r in (ev or {}).get('scenarios',[]) if r.get('scenario')=='forward']
+    return bool(records) and ev.get('forward_progress',0)>=.7 and all(
+        r.get('full_survival',0)>=.9 and r.get('progress_ratio',0)>=.5
+        and r.get('lateral_m',float('inf'))<=.3 for r in records)
+
+
+def check_learning_stall(s):
+    history=s.get('history') or []
+    rejected=[]
+    for row in reversed(history):
+        if row.get('decision')!='RETAINED':break
+        rejected.append(row)
+    # Also recognizes old histories without an explicit parent field.
+    repeated=len(rejected)>=3 and len({(r.get('profile'),checkpoint_index(r.get('checkpoint','')))
+                                       for r in rejected[:3]})==1
+    if repeated or len(rejected)>=6:
+        raise RuntimeError('Learning stalled: repeated rejected candidates. Models preserved. '
+                           'Export training data for review before continuing; restarting does not clear this guard.')
+
+
 def current_profile(s):
     # Single policy lineage through 10,000 training iterations. No early Arena
     # competition. After this we diversify deliberately based on measurements.
     if s['total_updates'] < STAGE_A_UPDATES:
         return 'gait'
     ev=s.get('best_evaluation') or {}
-    if ev.get('forward_progress',0.0) >= 0.35 and ev.get('survival',0) >= 0.65:
+    if gait_ready(ev):
         return 'generalize'
     return ('gait_more_progress','gait_explore','gait')[s['trials']%3]
 
@@ -236,8 +258,7 @@ def create_active(s, block_iterations:int):
     random_restart = (not baseline and s['trials']>0 and s['trials']%5==4 and
                       (s.get('best_evaluation') or {}).get('forward_progress',0.0)<.15)
     parent=None if (baseline and s['total_updates']==0) or random_restart else (
-        s.get('best_checkpoint') if not baseline and profile=='generalize' and s.get('best_checkpoint')
-        else s.get('current_checkpoint'))
+        s.get('current_checkpoint'))
     if parent and not Path(parent).is_file():
         raise FileNotFoundError('Training parent missing; refusing random restart: '+parent)
     parent_idx=checkpoint_index(parent)
@@ -692,7 +713,7 @@ def complete_active(s:dict,active:dict,ck:Path,ev:dict|None):
         s['best_evaluation']=ev
         say('NEW CHAMPION forward=%.3f score=%.2f (%s)'%(
             ev['forward_progress'],ev['score'],ck.name))
-        if ev.get('forward_progress',0)>=.35 and ev.get('survival',0)>=.6:
+        if gait_ready(ev):
             export_best()
         else:
             say('Champion is PROVISIONAL (walking threshold not met); no deployable walking ONNX exported.')
@@ -701,25 +722,17 @@ def complete_active(s:dict,active:dict,ck:Path,ev:dict|None):
         s['evaluations']+=1
     s['total_updates']+=active['block']
     s['trials']+=1
-    # First 10k is ONE lineage: even if score dips, continue from current.
-    # Beyond that, only promote successful branches to the working lineage.
-    if s['total_updates'] <= STAGE_A_UPDATES:
+    # Preserve the champion separately; a rejected block must not repeatedly
+    # rewind the optimizer to it. Failed fresh seeds do not replace the lineage.
+    if selected or not active.get('random_restart'):
         s['current_checkpoint']=str(ck)
-    elif selected:
-        s['current_checkpoint']=str(ck)
-    elif (s.get('best_evaluation') or {}).get('forward_progress',0.0)<.35:
-        # Still searching for the first walking gait: do NOT regress to the
-        # earliest high-survival nonwalking champion after every trial.
-        if not active.get('random_restart'):
-            s['current_checkpoint']=str(ck)
-        # A failed deliberate fresh-seed experiment must not destroy the prior lineage.
-    else:
-        s['current_checkpoint']=s.get('best_checkpoint') or str(ck)
+    s['stalled_trials']=0 if selected else s.get('stalled_trials',0)+1
     s['stage']='gait-discovery' if s['total_updates']<STAGE_A_UPDATES else (
-        'skill-expansion' if (s.get('best_evaluation') or {}).get('forward_progress',0)>=.35 else 'gait-search')
+        'skill-expansion' if gait_ready(s.get('best_evaluation')) else 'gait-search')
     decision='PROMOTED' if selected else ('EVAL_FAILED' if ev is None else 'RETAINED')
     append_board(active,ck,ev,decision)
     s['history']=(s.get('history') or [])[-200:]+[dict(id=active['id'],checkpoint=str(ck),
+      parent=active.get('parent'),score=(ev or {}).get('score'),survival=(ev or {}).get('survival'),
       profile=active['profile'],decision=decision,forward_progress=(ev or {}).get('forward_progress'),at=iso())]
     s['active']=None
     s['last_error']=None if ev else 'Evaluation failed; candidate retained; controller continued from latest checkpoint.'
@@ -784,12 +797,14 @@ def run_autopilot(args):
             s['save_every']=args.save_every
             s['status']='running'
             write_state(s)
+            check_learning_stall(s)
             preflight(s)
             say(f'Gait-First Autopilot | envs={args.environments} | block={args.block_iterations} | no cycle limit')
             say('Persistent state:',STATE_PATH)
             say('First 10,000 PPO iterations follow ONE lineage; not five premature contenders.')
             say('Forward displacement is the primary evaluation metric. No convergence guarantee.')
             while True:
+                check_learning_stall(s)
                 if free_disk_gb(BASE)<MIN_FREE_GB:
                     raise RuntimeError(f'Less than {MIN_FREE_GB} GiB available; stopping safely to avoid disk exhaustion.')
                 active=s.get('active') or create_active(s,args.block_iterations)
@@ -1124,7 +1139,7 @@ def cmd_unit(args):
 def parser():
     p=argparse.ArgumentParser(description='XGO-Duck Gait-First Autopilot')
     sub=p.add_subparsers(dest='command',required=True)
-    for name in ('run','worker-train','worker-eval','status','active','stop','reset','viewer','tensorboard','log','benchmark','unit','diagnostics'):
+    for name in ('run','worker-train','worker-eval','status','active','stop','reset','viewer','tensorboard','log','benchmark','unit','diagnostics','export-training'):
         s=sub.add_parser(name)
         if name=='run':
             s.add_argument('--environments',type=int,default=DEFAULT_ENVIRONMENTS)
@@ -1150,6 +1165,7 @@ def parser():
             s.add_argument('--seconds',type=float,required=True)
             s.add_argument('--seed-offset',type=int,default=5000)
         if name=='diagnostics':s.add_argument('--output')
+        if name=='export-training':s.add_argument('--output',required=True)
         if name=='reset':s.add_argument('--confirm',required=True)
         if name=='viewer':
             s.add_argument('--device',default='cpu',choices=['cpu','cuda:0'])
@@ -1178,6 +1194,10 @@ def main():
     if args.command=='benchmark':return cmd_benchmark(args)
     if args.command=='unit':return cmd_unit(args)
     if args.command=='diagnostics':return cmd_diagnostics(args)
+    if args.command=='export-training':
+        from training_export import export_training
+        export_training(BASE,Path(__file__).resolve().parents[1],args.output)
+        return 0
     return 2
 
 if __name__=='__main__':

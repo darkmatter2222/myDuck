@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
- [ValidateSet('menu','run','status','viewer','tensorboard','log','stop','benchmark','reset','setup','selftest','diagnostics')]
+ [ValidateSet('menu','run','status','viewer','tensorboard','log','stop','benchmark','reset','setup','selftest','diagnostics','training-export')]
  [string]$Task='menu',
  [string]$Distro='',
  [switch]$Hold
@@ -84,6 +84,17 @@ function ExportDiagnostics {
  Write-Host 'Send this single text file. No checkpoint weights are included.'
  Start-Process explorer.exe -ArgumentList ('/select,"'+$report+'"') | Out-Null
 }
+function ExportTraining {
+ $directory=Join-Path $script:Root 'diagnostics'
+ New-Item -ItemType Directory -Force -Path $directory | Out-Null
+ $name='myDuck-training-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'.zip'
+ Write-Host 'Exporting training history. Stop training first for a consistent snapshot. Models are preserved.'
+ Engine 'export-training' @('--output',($script:LinuxRoot+'/diagnostics/'+$name))
+ NeedSuccess 'Training export'
+ $report=Join-Path $directory $name
+ Write-Host "TRAINING EXPORT READY: $report" -ForegroundColor Green
+ Start-Process explorer.exe -ArgumentList ('/select,"'+$report+'"') | Out-Null
+}
 function Execute([string]$Action) {
  switch ($Action) {
   'setup' {Setup}
@@ -108,6 +119,7 @@ function Execute([string]$Action) {
   'selftest' {Engine 'unit'; NeedSuccess 'Self-test'}
   'reset' {DeleteProject}
   'diagnostics' {ExportDiagnostics}
+  'training-export' {ExportTraining}
   default {Engine $Action; NeedSuccess $Action}
  }
 }
@@ -128,6 +140,7 @@ try {
    Write-Host '1 Start/resume (also starts TensorBoard and waiting viewer)'
    Write-Host '2 Status   3 Viewer   4 TensorBoard   5 Logs   6 Evaluate'
    Write-Host 'TensorBoard: http://localhost:6007 | Viewer: http://localhost:8080'
+   Write-Host '11 Export training history (ZIP with events, evaluations and lineage)'
    Write-Host '8 Export diagnostics to one shareable text file'
    Write-Host '7 Stop training   9 Delete project   10 Setup/repair   0 Exit menu'
    try {
@@ -142,6 +155,7 @@ try {
      '8' {ExportDiagnostics}
      '9' {DeleteProject}
      '10' {Spawn 'setup'}
+     '11' {Spawn 'training-export'}
      '0' {$done=$true}
      default {Write-Host 'Select a listed number.'}
     }

@@ -1,3 +1,7 @@
+# Training audit 2.2.0
+
+TRAINING-REVIEW.md supersedes earlier looping/generalization descriptions. Export is read-only and contains no checkpoint weights. Never automatically clear learning-stall guards or discard evidence. New candidates continue the working lineage separately from the best model. Generalization requires gait_ready, not aggregate survival.
+
 # Desktop and diagnostics 2.1.0
 
 START-XGODUCK.cmd opens XgoDuck.Desktop.ps1. XgoDuck.ps1 remains the worker/console entry point. Desktop labels must distinguish waiting from ready; do not claim a worker process is successful training. Diagnostics must survive missing WSL and must not collect environment secrets or model weights. TensorBoard may prepare itself before training setup. Setup must log from the beginning and report the current verification phase. Tests now include Linux service/installer integration and Windows fixture end-to-end launch tests.

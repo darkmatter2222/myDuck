@@ -76,7 +76,7 @@ function ButtonAt($text,$x,$y,$w,$action,$primary=$false) {
 $null=ButtonAt 'Start / resume training' 30 198 250 'run' $true
 $null=ButtonAt 'Stop training' 294 198 170 'stop'
 $null=ButtonAt 'Setup / verify' 478 198 170 'setup'
-$null=ButtonAt 'Export diagnostics' 662 198 190 'diagnostics'
+$null=ButtonAt 'Export training data' 662 198 190 'training-export'
 $null=ButtonAt 'Reset project' 866 198 170 'reset'
 $null=ButtonAt 'Open TensorBoard' 30 258 250 'tensorboard'
 $null=LabelAt 'http://localhost:6007' 294 267 300 26 12 $true
@@ -91,7 +91,7 @@ $selector.BackColor=[Drawing.ColorTranslator]::FromHtml('#1B2433')
 $selector.ForeColor=[Drawing.ColorTranslator]::FromHtml('#E5EAF3')
 $selector.FlatStyle='Flat'
 $selector.DropDownStyle='DropDownList';$selector.SetBounds(140,430,195,30)
-foreach ($name in @('run','setup','tensorboard','viewer','diagnostics','stop','reset')) {[void]$selector.Items.Add($name)}
+foreach ($name in @('run','setup','tensorboard','viewer','diagnostics','training-export','stop','reset')) {[void]$selector.Items.Add($name)}
 $selector.SelectedIndex=0;$form.Controls.Add($selector)
 $logPath=LabelAt 'No log yet. Choose an action above.' 350 435 686 30 9
 $console=New-Object Windows.Forms.RichTextBox
@@ -102,7 +102,7 @@ $console.BackColor=[Drawing.ColorTranslator]::FromHtml('#0B1018')
 $console.ForeColor=[Drawing.ColorTranslator]::FromHtml('#DDE6F6')
 $console.Font=New-Object Drawing.Font('Consolas',10)
 $console.BorderStyle='None'
-$console.Text="Waiting for your first action.`n`nStart / resume: setup > GPU check > short preflight > training > evaluation.`nExport diagnostics: one text file containing Windows and WSL logs."
+$console.Text="Waiting for your first action.`n`nStart / resume: setup > GPU check > short preflight > training > evaluation.`nExport training data: ZIP with TensorBoard history, evaluations, settings and logs."
 $form.Controls.Add($console)
 $foot=LabelAt 'Closing this panel leaves worker windows running. Stop training before resetting. No archives are created.' 30 745 1006 27 9
 $foot.Anchor='Bottom,Left,Right'

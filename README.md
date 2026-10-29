@@ -1,3 +1,7 @@
+## Training stuck after an overnight run?
+
+Stop training, update this repository, reopen the dark launcher and click **Export training data**. Send the ZIP selected in Explorer. Do not reset your models. See [TRAINING-REVIEW.md](TRAINING-REVIEW.md) for the repeated-attempt fix, export contents and next training decisions.
+
 # myDuck: XGO-Duck training control center
 
 Train XGO-Duck in simulation from a Windows launcher, with WSL2, checkpoint recovery, automatic evaluation, TensorBoard and a browser viewer.
