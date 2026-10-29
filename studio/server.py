@@ -83,7 +83,7 @@ def make_handler(manager,token,hosts):
                     if not python.exists():raise ValueError('Training environment is not installed yet')
                     tag=body.get('tag','')
                     if not isinstance(tag,str) or len(tag)>300:raise ValueError('Invalid metric tag')
-                    result=subprocess.run([str(python),str(ROOT/'scripts/scalar_reader.py')],input=json.dumps({'runs':runs,'tag':tag}),capture_output=True,text=True,timeout=30)
+                    result=subprocess.run([str(python),str(ROOT/'scripts/scalar_reader.py')],input=json.dumps({'runs':runs,'tag':tag,'all':body.get('all') is True}),capture_output=True,text=True,timeout=30)
                     if result.returncode:raise ValueError('TensorBoard event reader failed: '+result.stderr[-600:])
                     return self.send(json.loads(result.stdout))
                 return self.send({'error':'Not found'},404)

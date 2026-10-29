@@ -137,3 +137,11 @@ See [IDEAS-200.md](IDEAS-200.md) for 100 additional analysis and utility proposa
 Use the persistent **Analysis targets** toolbar from any workspace. Filter by run, label or checkpoint step; select an item and click **Add target**. **Latest per run** selects one checkpoint from each of the six most recently saved runs. Remove individual target chips or use **Clear targets**. Compare loads these targets automatically. Targets stay selected while navigating; reloading the page clears them.
 
 The **Checkpoint manager** has a separate selection for deletion and organization. Its checkboxes never change analysis targets. Analysis selection never authorizes deleting files. The workbench uses a horizontal workspace bar, full-width neutral graphite panels and NVIDIA-green circuit accents.
+
+## Dense metrics and comparison workflow
+
+**Metrics** is the single-run monitoring workspace. Pick a run and the dashboard loads automatically. Locomotion health, optimization, reward components and all-metrics presets filter recorded scalar tags. Tiles show sampled latest/min/max values, expand/collapse individually, export SVG, and use two to four columns. Live mode refreshes every 30 seconds while this tab is open. JSON export contains the displayed run data; the reader is bounded to 100 tags and 500 samples per tag. An absent metric is not invented.
+
+**Compare** now has a run checklist. Pick two to six runs to load comparative charts automatically. The advanced analysis ribbon is collapsed by default and does not float over the workspace. Single-run charts belong in Metrics. Checkpoint management selection remains separate.
+
+Overview shows active and queued training counts separately and compact GPU utilization, memory and temperature history. Experiment history excludes viewer and TensorBoard service jobs; those are managed under System.
