@@ -5,6 +5,7 @@ from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 from pathlib import Path
 from .manager import Manager,ROOT,engine
 from .schema import training
+from .analysis import analyze
 
 def clean(obj):
     if isinstance(obj,float) and not math.isfinite(obj):return None
@@ -64,6 +65,7 @@ def make_handler(manager,token,hosts):
                 if not 0<length<=1024*1024:raise ValueError('Invalid request length')
                 body=json.loads(self.rfile.read(length));path=urllib.parse.urlparse(self.path).path
                 if not isinstance(body,dict):raise ValueError('Expected a JSON object')
+                if path=='/api/analysis':return self.send(analyze(body))
                 if path=='/api/jobs':return self.send({'id':manager.enqueue(body.get('kind'),body.get('config',{}))},201)
                 if path=='/api/service-stop':manager.stop_service(body.get('kind'));return self.send({'ok':True})
                 if path=='/api/stop':manager.stop(body.get('id'));return self.send({'ok':True})

@@ -145,3 +145,9 @@ The **Checkpoint manager** has a separate selection for deletion and organizatio
 **Compare** now has a run checklist. Pick two to six runs to load comparative charts automatically. The advanced analysis ribbon is collapsed by default and does not float over the workspace. Single-run charts belong in Metrics. Checkpoint management selection remains separate.
 
 Overview shows active and queued training counts separately and compact GPU utilization, memory and temperature history. Experiment history excludes viewer and TensorBoard service jobs; those are managed under System.
+
+## Evaluation statistics and experiment planning
+
+Compare includes **Independent evaluation statistics**. Paste independent episode or seed outcomes to obtain count, mean, median, quartiles, spread and a deterministic 1,000-resample bootstrap interval for the mean. Single observations have no interval. Paired comparisons require matching scenarios in matching order and report B minus A plus the paired standardized effect when its denominator is nonzero. These are analysis tools, not evidence that correlated training updates are independent trials. Export results as JSON.
+
+**Configuration differences** compares recorded configurations for analysis targets; imported runs without configuration records are rejected explicitly. In New experiment, **Validate / preview plan** resolves defaults through the same validator used for queuing and shows updates, evaluation counts and approximate save counts per sequence. It does not queue training or invent runtime estimates.
