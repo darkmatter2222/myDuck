@@ -36,6 +36,19 @@ jobs:
       - name: Construct desktop and check layout
         shell: powershell
         run: powershell.exe -NoProfile -STA -File .\XgoDuck.Desktop.ps1 -SelfTest
+      - name: Verify CMD entry point saves startup output
+        shell: powershell
+        run: |
+          cmd.exe /c START-XGODUCK.cmd -SelfTest
+          $deadline=(Get-Date).AddSeconds(30)
+          $ok=$false
+          do {
+            Start-Sleep -Milliseconds 500
+            if (Test-Path 'launcher-logs/desktop-startup.log') {
+              $ok=(Get-Content 'launcher-logs/desktop-startup.log' -Raw) -match 'Desktop construction and layout checks passed'
+            }
+          } until ($ok -or (Get-Date) -gt $deadline)
+          if (-not $ok) {throw 'CMD launcher did not complete its desktop self-test'}
       - name: Exercise full launcher success and failure paths with WSL fixture
         shell: powershell
         run: .\tests\test_windows_workflow.ps1
