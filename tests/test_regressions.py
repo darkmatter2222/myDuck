@@ -1,5 +1,6 @@
 """Regression tests for the actual configuration and service boundaries."""
 import contextlib
+import os
 import importlib.util
 from pathlib import Path
 import socket
@@ -19,7 +20,7 @@ class Regressions(unittest.TestCase):
             with self.subTest(profile=profile):
                 rewards={key:N(weight=1,params={}) for key in ('head_pose_bias','track_linear_velocity','track_angular_velocity','upright','pose','air_time','head_pose_tracking','foot_swing_height','action_rate_l2')}
                 env=N(scene=N(num_envs=1),events={'push_robot':object()},curriculum={},
-                      commands={'twist':N(ranges=N()),'head_pose':N()},rewards=rewards,
+                      commands={'twist':N(ranges=N(lin_vel_x=(-.3,.3))),'head_pose':N()},rewards=rewards,
                       observations=object(),actions=object())
                 cfg=N(env=env,agent=N(algorithm=N()))
                 layout=(env.observations,env.actions)
@@ -35,6 +36,12 @@ class Regressions(unittest.TestCase):
                 self.assertIn('forward_progress',env.rewards)
                 self.assertEqual(cfg.agent.max_iterations,8)
                 train.launch_training.assert_called_once_with(e.TASK,cfg)
+                with mock.patch.dict(sys.modules,modules),mock.patch.dict(os.environ,{'MYDUCK_OVERRIDES':'{"lr":0.0002,"progress":8,"forward_min":0.1,"forward_max":0.25}'}):
+                    e.worker_train(args)
+                self.assertEqual(cfg.agent.algorithm.learning_rate,.0002)
+                self.assertEqual(cfg.env.rewards['forward_progress'].weight,8)
+                self.assertEqual(cfg.env.commands['twist'].ranges.lin_vel_x,(.1,.25))
+                self.assertEqual(layout,(env.observations,env.actions))
 
     def test_cli_bounded_and_forever_are_distinct(self):
         self.assertFalse(e.parser().parse_args(['run']).forever)
