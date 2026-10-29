@@ -131,3 +131,9 @@ This stops the web dashboard only. Running training and viewer/TensorBoard worke
 The four current profiles train **locomotion**. They are reward/command presets, not four distinct robot skills. Sitting, recovery and stand-up tasks are not implemented. Adding their names to a menu would not teach those skills. These need task-specific commands, rewards, termination logic and physical evaluation before being offered as trainable behaviors.
 
 See [IDEAS-200.md](IDEAS-200.md) for 100 additional analysis and utility proposals, clearly marked as a roadmap rather than implemented functionality.
+
+## Analysis workbench
+
+Use the persistent **Analysis targets** toolbar from any workspace. Filter by run, label or checkpoint step; select an item and click **Add target**. **Latest per run** selects one checkpoint from each of the six most recently saved runs. Remove individual target chips or use **Clear targets**. Compare loads these targets automatically. Targets stay selected while navigating; reloading the page clears them.
+
+The **Checkpoint manager** has a separate selection for deletion and organization. Its checkboxes never change analysis targets. Analysis selection never authorizes deleting files. The workbench uses a horizontal workspace bar, full-width neutral graphite panels and NVIDIA-green circuit accents.
