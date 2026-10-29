@@ -19,6 +19,8 @@ public class FakeWsl {
    Console.WriteLine("TensorBoard URL: http://localhost:6007");
    return Environment.GetEnvironmentVariable("DUCK_TEST_FAIL")=="1" ? 7 : 0;
   }
+  if(joined.Contains(" active")){return 2;}
+  if(joined.Contains("check-campaign")){Console.WriteLine("PAUSED: test campaign");return 20;}
   return 0;
  }
 }
@@ -34,6 +36,14 @@ public class FakeWsl {
   $text=(Get-Content $stdout -Raw)+(Get-Content $stderr -Raw)
   if ($text -notmatch 'ordinary native stderr progress' -or $text -match 'NativeCommandError|RemoteException') {throw "Native stderr was lost or misformatted: $text"}
  }
+ $args='-NoProfile -ExecutionPolicy RemoteSigned -File "'+(Join-Path $root 'XgoDuck.ps1')+'" -Task run -Distro Ubuntu -Background'
+ $p=Start-Process (Join-Path $PSHOME 'powershell.exe') -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+ if ($p.ExitCode -ne 20) {throw 'Paused campaign should return expected status 20'}
+ $result=Get-Content -Raw (Join-Path $root ('launcher-logs/result-'+$p.Id+'.json')) | ConvertFrom-Json
+ if ($result.status -ne 'paused') {throw 'Expected structured paused status'}
+ $args='-NoProfile -ExecutionPolicy RemoteSigned -File "'+(Join-Path $root 'XgoDuck.ps1')+'" -Task reset -Distro Ubuntu -Background -ConfirmedReset'
+ $p=Start-Process (Join-Path $PSHOME 'powershell.exe') -ArgumentList $args -Wait -PassThru -WindowStyle Hidden
+ if ($p.ExitCode -ne 0) {throw 'Confirmed background reset failed'}
  if (-not (Get-ChildItem (Join-Path $root 'launcher-logs') -Filter '*.log')) {throw 'No persisted launcher logs'}
  Write-Host 'Full launcher success/failure workflow tests passed.'
 } finally {

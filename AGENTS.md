@@ -1,3 +1,7 @@
+# Studio 2.3.0
+
+Desktop workers are hidden and do not use Hold. Reset accepts one desktop confirmation then stops recognized project processes before acquiring the deletion lock. Services are explicit, not auto-launched by Start. Expected learning pauses use exit 20 and structured task results. These instructions supersede older visible-console and manual-close requirements. Never kill unverified port owners.
+
 # Training audit 2.2.0
 
 TRAINING-REVIEW.md supersedes earlier looping/generalization descriptions. Export is read-only and contains no checkpoint weights. Never automatically clear learning-stall guards or discard evidence. New candidates continue the working lineage separately from the best model. Generalization requires gait_ready, not aggregate survival.

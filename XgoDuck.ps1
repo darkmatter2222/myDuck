@@ -3,13 +3,17 @@ param(
  [ValidateSet('menu','run','status','viewer','tensorboard','log','stop','benchmark','reset','setup','selftest','diagnostics','training-export')]
  [string]$Task='menu',
  [string]$Distro='',
- [switch]$Hold
+ [switch]$Hold,
+ [switch]$Background,
+ [switch]$ConfirmedReset
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $script:Root=$PSScriptRoot
 $script:Code=0
 $script:Transcript=$false
+$script:Outcome="completed"
+$script:Message="Task completed."
 
 function Native([string[]]$Arguments) {
  # Send process output to the host, NEVER into a function's numeric return value.
@@ -52,17 +56,18 @@ function Setup {
 }
 function Spawn([string]$Action) {
  $file=Join-Path $script:Root 'XgoDuck.ps1'
- $arguments=Get-XgoWorkerArguments -ScriptPath $file -Action $Action -Distribution $script:Distro
+ $arguments=Get-XgoWorkerArguments -ScriptPath $file -Action $Action -Distribution $script:Distro -Background:$Background
  Write-Host ('Launching: powershell.exe '+$arguments)
- $worker=Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -WorkingDirectory $script:Root -ArgumentList $arguments -PassThru
+ $style='Normal'; if ($Background) {$style='Hidden'}
+ $worker=Start-Process -WindowStyle $style -FilePath (Join-Path $PSHOME 'powershell.exe') -WorkingDirectory $script:Root -ArgumentList $arguments -PassThru
  if ($worker.WaitForExit(1500)) {
   throw "Worker exited immediately (exit $($worker.ExitCode)). Check launcher-logs and Norton Security History. No exclusions are added automatically."
  }
 }
 function DeleteProject {
  Write-Host 'Delete ALL installed source, models, logs and state in ~/xgoduck_oneclick. NO archive.' -ForegroundColor Red
- Write-Host 'Close viewer/TensorBoard and stop training first. Separate legacy ~/xgoduck_rl and this launcher folder are outside this reset.'
- if ((Read-Host 'Type DELETE to confirm').Trim() -ieq 'DELETE') {Engine 'reset' @('--confirm','DELETE'); NeedSuccess 'Reset'}
+ Write-Host 'Recognized project processes will be stopped before deletion. Separate legacy ~/xgoduck_rl and this launcher folder are outside this reset.'
+ if ($ConfirmedReset -or ((Read-Host 'Type DELETE to confirm').Trim() -ieq 'DELETE')) {Engine 'reset' @('--confirm','DELETE'); NeedSuccess 'Reset'}
 }
 function ExportDiagnostics {
  $directory=Join-Path $script:Root 'diagnostics'
@@ -102,14 +107,16 @@ function Execute([string]$Action) {
    Engine 'active'
    if ($script:Code -eq 0) {Write-Host 'Training already running.'; return}
    if ($script:Code -ne 2) {NeedSuccess 'Controller check'}
+   Engine 'check-campaign'
+   if ($script:Code -eq 20) {$script:Outcome='paused';$script:Message='Training paused after repeated unsuccessful attempts. Export training data, or use Reset project for a fresh start.';return}
+   NeedSuccess 'Campaign check'
    Setup
    Add-Type -Namespace Xgo -Name Power -MemberDefinition '[System.Runtime.InteropServices.DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint flags);'
    [void][Xgo.Power]::SetThreadExecutionState([uint32]2147483649)
    try {
-    foreach ($service in @('tensorboard','viewer')) {
-     try {Spawn $service} catch {Write-Warning "Could not open $service window: $_. Training will continue."}
-    }
+    # Services are opened explicitly from the studio, avoiding duplicate windows.
     Engine 'run' @('--environments','4096','--block-iterations','2000','--save-every','250','--forever')
+    if ($script:Code -eq 20) {$script:Outcome='paused';$script:Message='Training paused after repeated unsuccessful attempts. Export training data for review.';return}
     NeedSuccess 'Training'
    } finally {[void][Xgo.Power]::SetThreadExecutionState([uint32]2147483648)}
   }
@@ -163,11 +170,15 @@ try {
   }
  }
 } catch {
+$script:Outcome='failed';$script:Message=$_.Exception.Message
  $script:Code=1
  Write-Host "ERROR: $_" -ForegroundColor Red
  Write-Host $_.ScriptStackTrace
 } finally {
  if ($script:Transcript) {Stop-Transcript | Out-Null}
+ if (Test-Path -LiteralPath (Join-Path $script:Root 'launcher-logs')) {
+  @{task=$Task;status=$script:Outcome;message=$script:Message;exitCode=$script:Code;log=$log;finished=(Get-Date -Format o)} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $script:Root ('launcher-logs/result-'+$PID+'.json')) -Encoding UTF8
+ }
  if ($Hold) {[void](Read-Host 'Task ended. Press Enter to close this window')}
 }
 exit $script:Code

@@ -160,8 +160,9 @@ class EngineTests(TestCase):
             home=Path(td);base=home/'xgoduck_oneclick';base.mkdir()
             with mock.patch.multiple(e,HOME=home,BASE=base,LOCK_PATH=home/'.lock'),\
               mock.patch.object(e,'known_controller_pid',return_value=None),\
-              mock.patch.object(e,'existing_viewer_or_worker',return_value=[(777,'viewer')]):
-                with self.assertRaisesRegex(RuntimeError,'Viewer/trainer still using'):
+              mock.patch.object(e,'existing_viewer_or_worker',return_value=[(777,'viewer')]),\
+              mock.patch.object(e,'stop_project_processes',side_effect=RuntimeError('Project processes did not stop')):
+                with self.assertRaisesRegex(RuntimeError,'Project processes did not stop'):
                     e.cmd_reset(SimpleNamespace(confirm='DELETE'))
                 self.assertTrue(base.is_dir())
 
